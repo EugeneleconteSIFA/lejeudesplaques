@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-body antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer components {
+  .btn-chrono {
+    background-color: #d32f2f;
+    transition: background-color 0.15s;
+  }
+  .btn-chrono:hover {
+    background-color: #b71c1c;
+  }
+  .btn-multi {
+    background-color: #003399;
+    transition: background-color 0.15s;
+  }
+  .btn-multi:hover {
+    background-color: #001f5c;
+  }
+  .bg-chrono-solid {
+    background-color: #d32f2f;
+  }
+  .bg-multi-solid {
+    background-color: #003399;
+  }
+  .text-chrono {
+    color: #d32f2f;
+  }
+  .border-chrono {
+    border-color: #d32f2f;
+  }
+  .bg-gradient-cream {
+    background: linear-gradient(to bottom, #fde9c1, #fff4dc);
+  }
+  .bg-gradient-lobby {
+    background: linear-gradient(to bottom, #fde9c1, #b8d8e0);
+  }
+  .bg-gradient-home {
+    background: linear-gradient(to bottom, #fde9c1 0%, #fff4dc 50%, #b8d8e0 100%);
+  }
+}
+
+.active\:scale-98:active {
+  transform: scale(0.98);
+}
+
+.font-display {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.02em;
+}
+.font-plate {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 800;
+}
