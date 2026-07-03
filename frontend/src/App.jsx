@@ -1361,6 +1361,10 @@ const MultiRoom = ({ onBack }) => {
   const isPlaying = room.status === "playing";
   const isValidated = room.status === "validated";
   const isVoting = room.status === "voting";
+  const isSkipped = room.status === "skipped";
+  const passes = room.passes || [];
+  const hasPassed = passes.includes(playerId);
+  const totalPlayers = Object.keys(room.players).length;
   const winnerPlayer = room.winner ? room.players[room.winner] : null;
   const voteTimeLeft = isVoting && room.vote
     ? Math.max(0, Math.ceil((20000 - (Date.now() - room.vote.startedAt)) / 1000))
@@ -1472,6 +1476,13 @@ const MultiRoom = ({ onBack }) => {
                     <div className="inline-block w-3 h-3 border-2 border-amber-700 border-t-transparent rounded-full animate-spin mr-2"/>
                     <span className="font-medium text-amber-900">{room.checking.name} tente "{room.checking.answer}"...</span>
                   </div>
+                ) : hasPassed ? (
+                  <div className="p-4 rounded-2xl bg-stone-100 border-2 border-stone-300 text-center">
+                    <div className="text-sm text-stone-700">Tu as dit <strong>« je ne sais pas »</strong></div>
+                    <div className="text-xs text-stone-600 mt-1">
+                      {passes.length} / {totalPlayers} ont passé — en attente des autres...
+                    </div>
+                  </div>
                 ) : (
                   <>
                     <div className="relative">
@@ -1511,9 +1522,35 @@ const MultiRoom = ({ onBack }) => {
                     >
                       {verifying ? "Vérification..." : "Valider !"}
                     </button>
+
+                    <button
+                      onClick={passRound}
+                      disabled={verifying}
+                      className="w-full p-3 bg-white border-2 border-stone-300 text-stone-700 rounded-2xl font-medium text-sm hover:bg-stone-50 disabled:opacity-50"
+                    >
+                      Je ne sais pas
+                      {passes.length > 0 && (
+                        <span className="ml-2 text-xs text-stone-500">({passes.length}/{totalPlayers})</span>
+                      )}
+                    </button>
                   </>
                 )}
               </>
+            )}
+
+            {isSkipped && (
+              <div className="bg-stone-100 border-2 border-stone-300 rounded-2xl p-4 text-center">
+                <div className="text-xs text-stone-600">MANCHE PASSÉE</div>
+                <div className="font-display text-2xl text-stone-800 mt-1">Personne n'a trouvé</div>
+                <div className="text-xs text-stone-600 mt-1">Tous les joueurs ont dit « je ne sais pas »</div>
+                {isHost ? (
+                  <button onClick={nextRound} className="mt-3 bg-stone-900 text-white px-6 py-2 rounded-xl">
+                    Manche suivante →
+                  </button>
+                ) : (
+                  <div className="mt-3 text-xs text-stone-600">En attente de l'hôte...</div>
+                )}
+              </div>
             )}
 
             {isValidated && winnerPlayer && (
