@@ -225,6 +225,7 @@ async def create_room(req: CreateRoomRequest):
             "log": [],
             "checking": None,
             "vote": None,
+            "passes": [],
         }
         rooms[code] = room
     return {"playerId": player_id, "room": room}
@@ -288,6 +289,7 @@ async def start_round(code: str, req: HostActionRequest):
         room["winner"] = None
         room["checking"] = None
         room["vote"] = None
+        room["passes"] = []
     return room
 
 @app.post("/api/rooms/{code}/next-round")
@@ -407,6 +409,32 @@ async def cast_vote(code: str, req: VoteRequest):
         if len(votes) >= eligible or elapsed > 20000:
             _resolve_vote(room)
     return room
+
+class PassRequest(BaseModel):
+    playerId: str
+
+@app.post("/api/rooms/{code}/pass")
+async def pass_round(code: str, req: PassRequest):
+    """Un joueur déclare 'je ne sais pas'. Si tous ont passé, la manche est skipée."""
+    async with rooms_lock:
+        room = rooms.get(code.upper())
+        if not room:
+            raise HTTPException(404, "Salon introuvable")
+        if room["status"] != "playing":
+            raise HTTPException(400, "Le salon n'est pas en cours de manche")
+        if req.playerId not in room["players"]:
+            raise HTTPException(403, "Joueur inconnu")
+        passes = room.setdefault("passes", [])
+        if req.playerId not in passes:
+            passes.append(req.playerId)
+        # Si tous les joueurs ont passé → skip
+        if len(passes) >= len(room["players"]):
+            room["status"] = "skipped"
+            room["log"] = [{
+                "round": room["roundNumber"], "plate": room["plate"], "winner": "—",
+                "answer": "personne n'a trouvé", "points": 0, "mode": "skipped",
+            }] + room.get("log", [])[:9]
+        return room
 
 @app.post("/api/rooms/{code}/resolve-vote")
 async def resolve_vote(code: str):

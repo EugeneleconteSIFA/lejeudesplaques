@@ -438,9 +438,9 @@ const Home = ({ onSelectMode }) => {
     <div className="min-h-screen bg-gradient-home flex flex-col items-center justify-start p-4 sm:p-8">
       <div className="w-full max-w-md flex flex-col items-center gap-6">
         <div className="pt-8 pb-2 text-center">
-          <div className="text-xs tracking-[0.3em] text-stone-700 mb-2 font-medium">LE JEU DES VACANCES</div>
-          <h1 className="font-display text-7xl sm:text-8xl text-stone-900 leading-none tracking-tight">
-            INITIALES
+          <div className="text-xs tracking-[0.3em] text-stone-700 mb-2 font-medium">INITIALES</div>
+          <h1 className="font-display text-5xl sm:text-6xl text-stone-900 leading-none tracking-tight">
+            LE JEU<br/>DES PLAQUES
           </h1>
           <div className="h-1 w-24 bg-stone-900 mx-auto mt-3"/>
         </div>
@@ -1284,6 +1284,15 @@ const MultiRoom = ({ onBack }) => {
     try {
       const updated = await roomsAPI.vote(roomCode, playerId, accept);
       setRoom(updated);
+    } catch (e) { console.error(e); }
+  };
+
+  const passRound = async () => {
+    if (!room || room.status !== "playing") return;
+    try {
+      const updated = await roomsAPI.pass(roomCode, playerId);
+      setRoom(updated);
+      setAnswer("");
     } catch (e) { console.error(e); }
   };
 

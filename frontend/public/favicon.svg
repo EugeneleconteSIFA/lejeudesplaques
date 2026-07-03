@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect x="5" y="30" width="90" height="40" rx="6" fill="white" stroke="#111" stroke-width="3"/>
-  <rect x="8" y="33" width="14" height="34" rx="4" fill="#003399"/>
-  <text x="15" y="60" text-anchor="middle" fill="white" font-family="Arial Black" font-size="14" font-weight="900">F</text>
-  <text x="55" y="58" text-anchor="middle" fill="#111" font-family="Arial Black" font-size="20" font-weight="900">IN</text>
-  <rect x="78" y="33" width="14" height="34" rx="4" fill="#003399"/>
-  <text x="85" y="62" text-anchor="middle" fill="white" font-family="Arial Black" font-size="10" font-weight="900">67</text>
-</svg>

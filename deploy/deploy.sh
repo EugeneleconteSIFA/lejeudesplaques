@@ -8,6 +8,14 @@ set -e
 DEPLOY_ROOT="/var/www/initiales"
 DATA_DIR="/var/lib/initiales"
 
+# Garde-fou : refuser si le repo est cloné DANS le dossier cible
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+if [ "$REPO_ROOT" = "$DEPLOY_ROOT" ] || [[ "$REPO_ROOT" == "$DEPLOY_ROOT"/* ]]; then
+    echo "ERREUR : le repo est cloné dans $DEPLOY_ROOT."
+    echo "Clone-le ailleurs (ex. /opt/lejeudesplaques) et relance."
+    exit 1
+fi
+
 echo "==> Déploiement Initiales"
 
 # 1. Créer les dossiers cibles
