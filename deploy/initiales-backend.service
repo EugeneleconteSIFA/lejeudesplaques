@@ -12,7 +12,7 @@ Group=www-data
 WorkingDirectory=/var/www/initiales/backend
 Environment="PATH=/var/www/initiales/backend/venv/bin"
 EnvironmentFile=/var/www/initiales/backend/.env
-ExecStart=/var/www/initiales/backend/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000 --workers 2
+ExecStart=/var/www/initiales/backend/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8020 --workers 2
 Restart=always
 RestartSec=5
 

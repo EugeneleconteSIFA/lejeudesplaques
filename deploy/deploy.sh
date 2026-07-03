@@ -65,4 +65,4 @@ sudo systemctl status initiales-backend --no-pager
 
 echo "==> Fait. Health check :"
 sleep 1
-curl -s http://127.0.0.1:8000/api/health && echo
+curl -s http://127.0.0.1:8020/api/health && echo
