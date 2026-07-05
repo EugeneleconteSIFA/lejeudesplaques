@@ -485,12 +485,87 @@ const ChaslesModal = ({ onClose }) => (
 );
 
 // ============================================================
+// MODALE — RÈGLES DU JEU (version épique)
+// ============================================================
+
+const RulesModal = ({ onClose }) => (
+  <div
+    onClick={onClose}
+    className="fixed inset-0 bg-stone-900/70 z-50 flex items-center justify-center p-4"
+  >
+    <div
+      onClick={e => e.stopPropagation()}
+      className="bg-gradient-cream max-w-md w-full rounded-3xl p-6 shadow-2xl border-4 border-stone-900 max-h-[90vh] overflow-y-auto"
+    >
+      <div className="flex justify-between items-start mb-4">
+        <div className="text-xs tracking-[0.3em] text-stone-700">📖 LES RÈGLES</div>
+        <button onClick={onClose} className="text-stone-700 hover:text-stone-900 text-xl leading-none">✕</button>
+      </div>
+
+      <h2 className="font-display text-4xl text-stone-900 text-center leading-none mb-5">
+        COMMENT<br/>ÇA MARCHE ?
+      </h2>
+
+      <div className="space-y-4 text-sm text-stone-800 leading-relaxed">
+        <div>
+          <div className="font-display text-lg text-stone-900 mb-1">🛣️ La voie directe</div>
+          <p>Sur une plaque comme <code className="bg-stone-200 px-1.5 py-0.5 rounded font-mono">EW-143-WS</code>, invoque <strong>deux</strong> célébrités :</p>
+          <ul className="list-disc pl-6 mt-1 space-y-0.5">
+            <li>une pour <code className="bg-stone-200 px-1 rounded font-mono">EW</code> → « <em>Emma Watson</em> »</li>
+            <li>une pour <code className="bg-stone-200 px-1 rounded font-mono">WS</code> → « <em>William Saurin</em> »</li>
+          </ul>
+        </div>
+
+        <div>
+          <div className="font-display text-lg text-stone-900 mb-1">⛓️ La voie de Chasles</div>
+          <p>Quand la 2ème et la 3ème lettre s'accordent (ici <strong>W = W</strong>), tu peux enchaîner : une <strong>seule</strong> âme suffit, celle qui relie la 1ère et la 4ème lettre.</p>
+          <p className="mt-1">Sur <code className="bg-stone-200 px-1.5 py-0.5 rounded font-mono">EW-143-WS</code> → « <em>Élina Svitolina</em> » (EW + WS = ES). Le mathématicien approuve.</p>
+        </div>
+
+        <div>
+          <div className="font-display text-lg text-stone-900 mb-1">💰 Le butin</div>
+          <ul className="list-disc pl-6 space-y-0.5">
+            <li><strong>10 pts</strong> pour une bonne réponse</li>
+            <li><strong>+5 pts</strong> pour une chaîne de Chasles réussie ⛓️</li>
+            <li><strong>+5 pts</strong> si tu respectes le thème imposé 🎯</li>
+            <li><strong>×1.5 à ×3</strong> en série (3, 6, 10 réussites de suite 🔥)</li>
+          </ul>
+        </div>
+
+        <div>
+          <div className="font-display text-lg text-stone-900 mb-1">⚖️ Le jury</div>
+          <p>Chaque réponse est jugée par Claude, l'arbitre. Il accepte largement — même les personnalités de niche — mais refuse les inventions pures. En cas de doute, tu peux <em>défier son verdict</em>.</p>
+        </div>
+
+        <div>
+          <div className="font-display text-lg text-stone-900 mb-1">🎮 Les modes</div>
+          <ul className="list-disc pl-6 space-y-0.5">
+            <li><strong>Zen</strong> — sans timer, à ton rythme</li>
+            <li><strong>Chrono</strong> — 90 secondes pour maximiser le score</li>
+            <li><strong>Multi</strong> — plusieurs guerriers dans un salon, le premier qui dégaine emporte la manche</li>
+            <li><strong>Défi</strong> — 10 mêmes plaques pour tout le monde, classement partagé</li>
+          </ul>
+        </div>
+      </div>
+
+      <button
+        onClick={onClose}
+        className="w-full mt-5 bg-stone-900 text-white p-3 rounded-2xl font-medium hover:bg-stone-800"
+      >
+        Que la partie commence
+      </button>
+    </div>
+  </div>
+);
+
+// ============================================================
 // ÉCRAN D'ACCUEIL
 // ============================================================
 
 const Home = ({ onSelectMode }) => {
   const [examplePlate, setExamplePlate] = useState("DA-149-PY");
   const [showChasles, setShowChasles] = useState(false);
+  const [showRules, setShowRules] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => setExamplePlate(randomPlate()), 3000);
@@ -500,6 +575,7 @@ const Home = ({ onSelectMode }) => {
   return (
     <div className="min-h-screen bg-gradient-home flex flex-col items-center justify-start p-4 sm:p-8">
       {showChasles && <ChaslesModal onClose={() => setShowChasles(false)} />}
+      {showRules && <RulesModal onClose={() => setShowRules(false)} />}
       <div className="w-full max-w-md flex flex-col items-center gap-6">
         <button
           onClick={() => setShowChasles(true)}
@@ -508,11 +584,12 @@ const Home = ({ onSelectMode }) => {
           📜 En savoir plus sur Michel Chasles
         </button>
         <div className="pt-4 pb-2 text-center">
-          <div className="text-xs tracking-[0.3em] text-stone-700 mb-2 font-medium">INITIALES</div>
           <h1 className="font-display text-5xl sm:text-6xl text-stone-900 leading-none tracking-tight">
             LE JEU<br/>DES PLAQUES
           </h1>
-          <div className="h-1 w-24 bg-stone-900 mx-auto mt-3"/>
+          <div className="font-display text-2xl sm:text-3xl text-stone-800 tracking-tight mt-2">
+            d'immatriculation
+          </div>
         </div>
 
         <div className="my-4 transition-all duration-500 hover:scale-105">
@@ -574,14 +651,12 @@ const Home = ({ onSelectMode }) => {
           </button>
         </div>
 
-        <details className="text-xs text-stone-600 mt-6 max-w-xs">
-          <summary className="cursor-pointer hover:text-stone-900 transition-colors">Le code des Anciens</summary>
-          <div className="mt-2 space-y-2 leading-relaxed">
-            <p><strong>Voie directe :</strong> Sur <code className="bg-stone-200 px-1">EW-143-WS</code>, invoque "Emma Watson et William Saurin".</p>
-            <p><strong>Voie de Chasles ⛓️ :</strong> Quand la 2ème et la 3ème lettre s'accordent (W+W), une seule âme suffit : "Élina Svitolina" (EW + WS = ES). Le mathématicien approuve.</p>
-            <p><strong>Butin :</strong> +5 pts pour la chaîne. +5 pour l'obédience au thème.</p>
-          </div>
-        </details>
+        <button
+          onClick={() => setShowRules(true)}
+          className="text-xs text-stone-700 hover:text-stone-900 underline decoration-dotted underline-offset-4 tracking-wider mt-6"
+        >
+          Comment ça marche ?
+        </button>
       </div>
     </div>
   );
@@ -924,6 +999,7 @@ const SoloChrono = ({ onBack }) => {
   const [bestScore, setBestScore] = useState(0);
   // Stats de session (in-memory pour la partie en cours)
   const [stats, setStats] = useState({ people: {}, bestStreak: 0, chaslesCount: 0 });
+  const [chronoHistory, setChronoHistory] = useState([]); // recap plaque par plaque
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -953,6 +1029,7 @@ const SoloChrono = ({ onBack }) => {
     setSkipped(0);
     setStreak(0);
     setStats({ people: {}, bestStreak: 0, chaslesCount: 0 });
+    setChronoHistory([]);
     setAnswer("");
     setTimeout(() => inputRef.current?.focus(), 100);
   };
@@ -990,6 +1067,13 @@ const SoloChrono = ({ onBack }) => {
       };
     });
     setFeedback({ valid: true, points: pts, mode: result.mode, multiplier: streakMultiplier(streak) });
+    setChronoHistory(h => [...h, {
+      plate: submittedPlate,
+      answer: submittedNames.join(" + "),
+      points: pts,
+      mode: submittedMode,
+      status: "accepted",
+    }]);
     setPlate(randomPlate(difficulty));
     setAnswer("");
     setTimeout(() => setFeedback(null), 800);
@@ -999,6 +1083,11 @@ const SoloChrono = ({ onBack }) => {
         const badPeople = (verif.people || []).filter(p => !p.exists).map(p => p.name).join(", ");
         setScore(s => Math.max(0, s - pts));
         setSolved(s => Math.max(0, s - 1));
+        setChronoHistory(h => h.map(entry =>
+          entry.plate === submittedPlate && entry.answer === submittedNames.join(" + ") && entry.status === "accepted"
+            ? { ...entry, status: "rejected", points: 0 }
+            : entry
+        ));
         setFeedback({
           valid: false,
           reason: `⚠️ ${badPeople || "inconnu"} rejeté (−${pts})`,
@@ -1013,12 +1102,20 @@ const SoloChrono = ({ onBack }) => {
     if (!feedback?.contestable) return;
     setScore(s => s + feedback.contestable.points);
     setSolved(s => s + 1);
+    // Restaurer la ligne d'historique
+    setChronoHistory(h => {
+      const idx = [...h].reverse().findIndex(e => e.status === "rejected");
+      if (idx === -1) return h;
+      const realIdx = h.length - 1 - idx;
+      return h.map((e, i) => i === realIdx ? { ...e, status: "contested", points: feedback.contestable.points } : e);
+    });
     setFeedback(null);
   };
 
   const handleSkip = () => {
     setSkipped(s => s + 1);
     setStreak(0);
+    setChronoHistory(h => [...h, { plate, answer: "—", points: 0, mode: null, status: "skipped" }]);
     setPlate(randomPlate(difficulty));
     setAnswer("");
     setFeedback(null);
@@ -1114,6 +1211,41 @@ const SoloChrono = ({ onBack }) => {
               Record actuel : <span className="font-bold text-stone-900">{bestScore}</span> pts
               {score > 0 && ` · à ${bestScore - score} pts`}
             </div>
+          )}
+
+          {chronoHistory.length > 0 && (
+            <details open className="bg-white/60 rounded-2xl p-3 text-xs w-full">
+              <summary className="cursor-pointer text-stone-700 font-medium">
+                Rouvrir tes {chronoHistory.length} tentatives
+              </summary>
+              <div className="mt-2 space-y-1 max-h-72 overflow-y-auto">
+                {chronoHistory.map((h, i) => (
+                  <div key={i} className={`flex justify-between items-center p-2 rounded-lg ${
+                    h.status === "accepted" ? "bg-green-50" :
+                    h.status === "contested" ? "bg-amber-50" :
+                    h.status === "rejected" ? "bg-red-50" :
+                    "bg-stone-100"
+                  }`}>
+                    <div className="min-w-0 flex-1">
+                      <span className="font-mono font-bold text-stone-900">{h.plate}</span>
+                      <span className="text-stone-600 ml-2 truncate">→ {h.answer}</span>
+                    </div>
+                    <span className={`font-bold whitespace-nowrap ml-2 ${
+                      h.status === "accepted" ? "text-green-700" :
+                      h.status === "contested" ? "text-amber-700" :
+                      h.status === "rejected" ? "text-red-700" :
+                      "text-stone-500"
+                    }`}>
+                      {h.status === "accepted" && `+${h.points}`}
+                      {h.status === "contested" && `+${h.points} ⚠️`}
+                      {h.status === "rejected" && "✗"}
+                      {h.status === "skipped" && "—"}
+                      {h.mode === "chasles" && " ⛓️"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </details>
           )}
 
           <div className="flex gap-2 w-full">
