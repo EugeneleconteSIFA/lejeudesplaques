@@ -16,6 +16,10 @@ async function apiCall(path, options = {}) {
     });
     if (!res.ok) {
       const errText = await res.text().catch(() => "");
+      // 429 = rate limit — message plus doux
+      if (res.status === 429) {
+        throw new Error(`HTTP 429: Trop de requêtes, respire un peu.`);
+      }
       throw new Error(`HTTP ${res.status}: ${errText.slice(0, 200)}`);
     }
     return await res.json();
@@ -56,10 +60,10 @@ export async function askClaudeForAnswer(plate, theme, insist = false) {
 // ==========================================================
 
 export const rooms = {
-  create: (pseudo) =>
-    apiCall("/rooms", { method: "POST", body: JSON.stringify({ pseudo }) }),
-  join: (code, pseudo) =>
-    apiCall(`/rooms/${code}/join`, { method: "POST", body: JSON.stringify({ pseudo }) }),
+  create: (pseudo, totalRounds = 10) =>
+    apiCall("/rooms", { method: "POST", body: JSON.stringify({ pseudo, totalRounds }) }),
+  join: (code, pseudo, playerId = null) =>
+    apiCall(`/rooms/${code}/join`, { method: "POST", body: JSON.stringify({ pseudo, playerId }) }),
   get: (code, playerId) =>
     apiCall(`/rooms/${code}${playerId ? `?playerId=${playerId}` : ""}`),
   leave: (code, playerId) =>
@@ -68,6 +72,8 @@ export const rooms = {
     apiCall(`/rooms/${code}/start-round`, { method: "POST", body: JSON.stringify({ playerId }) }),
   nextRound: (code, playerId) =>
     apiCall(`/rooms/${code}/next-round`, { method: "POST", body: JSON.stringify({ playerId }) }),
+  rematch: (code, playerId) =>
+    apiCall(`/rooms/${code}/rematch`, { method: "POST", body: JSON.stringify({ playerId }) }),
   submit: (code, playerId, answer) =>
     apiCall(`/rooms/${code}/submit`, { method: "POST", body: JSON.stringify({ playerId, answer }) }),
   vote: (code, playerId, accept) =>

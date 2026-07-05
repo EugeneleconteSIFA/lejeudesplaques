@@ -544,6 +544,7 @@ const RulesModal = ({ onClose }) => (
             <li><strong>Chrono</strong> — 90 secondes pour maximiser le score</li>
             <li><strong>Multi</strong> — plusieurs guerriers dans un salon, le premier qui dégaine emporte la manche</li>
             <li><strong>Défi</strong> — 10 mêmes plaques pour tout le monde, classement partagé</li>
+            <li><strong>Sur le vif</strong> — tu vois une plaque IRL, tu la rentres, tu la craques</li>
           </ul>
         </div>
       </div>
@@ -554,6 +555,48 @@ const RulesModal = ({ onClose }) => (
       >
         Que la partie commence
       </button>
+    </div>
+  </div>
+);
+
+// ============================================================
+// MODALE — CONTESTATION D'UN VERDICT
+// ============================================================
+
+const ContestModal = ({ answer, winner, onCancel, onConfirm }) => (
+  <div
+    onClick={onCancel}
+    className="fixed inset-0 bg-stone-900/70 z-50 flex items-center justify-center p-4"
+  >
+    <div
+      onClick={e => e.stopPropagation()}
+      className="bg-white max-w-md w-full rounded-3xl p-6 shadow-2xl border-4 border-red-800"
+    >
+      <div className="text-center mb-4">
+        <div className="text-3xl mb-2">⚔️</div>
+        <h2 className="font-display text-3xl text-red-900 leading-none">DÉFIER LE VERDICT</h2>
+      </div>
+      <div className="text-sm text-stone-800 space-y-3 mb-5 leading-relaxed">
+        <p><strong>{winner}</strong> a marqué avec :</p>
+        <div className="bg-stone-100 rounded-xl p-3 text-center font-bold text-lg italic text-stone-900">
+          « {answer} »
+        </div>
+        <p className="text-center">Le jury (les autres joueurs) va trancher. Si la majorité te suit, les points seront retirés.</p>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={onCancel}
+          className="p-3 bg-stone-200 text-stone-800 rounded-xl font-medium hover:bg-stone-300"
+        >
+          Reculer
+        </button>
+        <button
+          onClick={onConfirm}
+          className="p-3 bg-red-700 text-white rounded-xl font-medium hover:bg-red-800"
+        >
+          Contester ⚔️
+        </button>
+      </div>
     </div>
   </div>
 );
@@ -649,6 +692,17 @@ const Home = ({ onSelectMode }) => {
             </div>
             <span className="text-2xl">🏁</span>
           </button>
+
+          <button
+            onClick={() => onSelectMode("vif")}
+            className="bg-emerald-700 text-white p-5 rounded-2xl flex items-center justify-between hover:bg-emerald-800 active:scale-98 transition-all shadow-lg"
+          >
+            <div className="text-left">
+              <div className="font-display text-2xl tracking-wide">SUR LE VIF</div>
+              <div className="text-xs text-emerald-100 mt-0.5">Tu vois une plaque ? Rentre-la, craque-la</div>
+            </div>
+            <span className="text-2xl">👀</span>
+          </button>
         </div>
 
         <button
@@ -693,7 +747,7 @@ const SoloZen = ({ onBack }) => {
 
     if (!result.valid) {
       setFeedback({ valid: false, reason: result.reason });
-      setTimeout(() => setFeedback(null), 2500);
+      setTimeout(() => setFeedback(null), 3500);
       return;
     }
 
@@ -1044,7 +1098,7 @@ const SoloChrono = ({ onBack }) => {
     const result = validateAnswer(answer, plate);
     if (!result.valid) {
       setFeedback({ valid: false, reason: result.reason });
-      setTimeout(() => setFeedback(null), 1800);
+      setTimeout(() => setFeedback(null), 3500);
       return;
     }
 
@@ -1076,7 +1130,7 @@ const SoloChrono = ({ onBack }) => {
     }]);
     setPlate(randomPlate(difficulty));
     setAnswer("");
-    setTimeout(() => setFeedback(null), 800);
+    setTimeout(() => setFeedback(null), 3500);
 
     verifyCelebrities(submittedPlate, submittedNames, submittedMode, { id: "free" }).then(verif => {
       if (!verif.valid && !verif._fallback) {
@@ -1361,16 +1415,62 @@ const MultiRoom = ({ onBack }) => {
   const [error, setError] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [voteTick, setVoteTick] = useState(0);
+  const [totalRounds, setTotalRounds] = useState(10);
+  const [showContestModal, setShowContestModal] = useState(false);
+  const [copied, setCopied] = useState(false);
   const pollRef = useRef(null);
   const resolvingRef = useRef(false);
 
+  // Reprise de session après F5
   useEffect(() => {
-    try { const v = localStorage.getItem("multi:pseudo"); if (v) setPseudo(v); } catch (e) {}
+    try {
+      const v = localStorage.getItem("multi:pseudo");
+      if (v) setPseudo(v);
+      const sess = localStorage.getItem("multi:session");
+      if (sess) {
+        const { code, playerId: pid, pseudo: sp } = JSON.parse(sess);
+        if (code && pid) {
+          // Vérifie que le salon existe encore et que le joueur est reconnu
+          roomsAPI.join(code, sp || v || "Joueur", pid)
+            .then(res => {
+              if (res.resumed) {
+                setPseudo(sp || v || "Joueur");
+                setPlayerId(res.playerId);
+                setRoomCode(code);
+                setRoom(res.room);
+                setPhase("inroom");
+              } else {
+                // le salon a expiré / joueur non retrouvé
+                localStorage.removeItem("multi:session");
+              }
+            })
+            .catch(() => localStorage.removeItem("multi:session"));
+        }
+      }
+    } catch (e) {}
   }, []);
 
   const savePseudo = (p) => {
     setPseudo(p);
     try { localStorage.setItem("multi:pseudo", p); } catch (e) {}
+  };
+
+  const saveSession = (code, pid, ps) => {
+    try {
+      localStorage.setItem("multi:session", JSON.stringify({ code, playerId: pid, pseudo: ps }));
+    } catch (e) {}
+  };
+
+  const clearSession = () => {
+    try { localStorage.removeItem("multi:session"); } catch (e) {}
+  };
+
+  const copyRoomCode = () => {
+    const url = `${window.location.origin}?salon=${roomCode}`;
+    const txt = `Rejoins mon salon Le Jeu des Plaques : code ${roomCode} — ${url}`;
+    navigator.clipboard.writeText(txt)
+      .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); })
+      .catch(() => {});
   };
 
   const pollRoom = useCallback(async (code, pid) => {
@@ -1415,11 +1515,12 @@ const MultiRoom = ({ onBack }) => {
   const createRoom = async () => {
     if (!pseudo.trim()) { setError("Choisis un pseudo."); return; }
     try {
-      const res = await roomsAPI.create(pseudo);
+      const res = await roomsAPI.create(pseudo, totalRounds);
       setPlayerId(res.playerId);
       setRoomCode(res.room.code);
       setRoom(res.room);
       setPhase("inroom");
+      saveSession(res.room.code, res.playerId, pseudo);
       setError("");
     } catch (e) {
       setError("Les portes du salon restent closes...");
@@ -1436,9 +1537,10 @@ const MultiRoom = ({ onBack }) => {
       setRoomCode(code);
       setRoom(res.room);
       setPhase("inroom");
+      saveSession(code, res.playerId, pseudo);
       setError("");
     } catch (e) {
-      setError("Ce salon s'est évaporé dans l'éther.");
+      setError(e.message?.includes("409") ? "Salon complet." : "Ce salon s'est évaporé dans l'éther.");
     }
   };
 
@@ -1447,10 +1549,19 @@ const MultiRoom = ({ onBack }) => {
       try { await roomsAPI.leave(roomCode, playerId); } catch (e) {}
     }
     clearInterval(pollRef.current);
+    clearSession();
     setPhase("lobby");
     setRoom(null);
     setRoomCode("");
     setPlayerId("");
+  };
+
+  const rematch = async () => {
+    if (!room || room.host !== playerId) return;
+    try {
+      const updated = await roomsAPI.rematch(roomCode, playerId);
+      setRoom(updated);
+    } catch (e) { console.error(e); }
   };
 
   const startRound = async () => {
@@ -1485,10 +1596,10 @@ const MultiRoom = ({ onBack }) => {
       } else {
         setFeedback({ valid: false, reason: res.reason });
       }
-      setTimeout(() => setFeedback(null), 2500);
+      setTimeout(() => setFeedback(null), 3500);
     } catch (e) {
       setFeedback({ valid: false, reason: e.message?.includes("409") ? "Un rival t'a devancé !" : "Erreur" });
-      setTimeout(() => setFeedback(null), 2000);
+      setTimeout(() => setFeedback(null), 3500);
     } finally {
       setVerifying(false);
     }
@@ -1511,9 +1622,13 @@ const MultiRoom = ({ onBack }) => {
     } catch (e) { console.error(e); }
   };
 
-  const contestRound = async () => {
+  const openContest = () => {
     if (!room || room.status !== "validated" || room.winner === playerId) return;
-    if (!confirm("Défier ce verdict ? Le jury des autres joueurs tranchera.")) return;
+    setShowContestModal(true);
+  };
+
+  const confirmContest = async () => {
+    setShowContestModal(false);
     try {
       const updated = await roomsAPI.contest(roomCode, playerId);
       setRoom(updated);
@@ -1540,6 +1655,23 @@ const MultiRoom = ({ onBack }) => {
               placeholder="Eugène"
               className="w-full p-3 rounded-xl border-2 border-stone-300 focus:border-stone-900 outline-none"
             />
+          </div>
+
+          <div className="bg-white/80 p-5 rounded-2xl space-y-2">
+            <label className="block text-xs text-stone-600 uppercase tracking-wider">Nombre de manches</label>
+            <div className="flex gap-2">
+              {[5, 10, 15, 20].map(n => (
+                <button
+                  key={n}
+                  onClick={() => setTotalRounds(n)}
+                  className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all ${
+                    totalRounds === n ? "bg-stone-900 text-white" : "bg-stone-100 text-stone-700"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
           </div>
 
           <button
@@ -1586,24 +1718,41 @@ const MultiRoom = ({ onBack }) => {
   const isValidated = room.status === "validated";
   const isVoting = room.status === "voting";
   const isSkipped = room.status === "skipped";
+  const isFinished = room.status === "finished";
   const passes = room.passes || [];
   const hasPassed = passes.includes(playerId);
   const totalPlayers = Object.keys(room.players).length;
   const winnerPlayer = room.winner ? room.players[room.winner] : null;
+  const totalRoundsRoom = room.totalRounds || 10;
+  const isLastRound = room.roundNumber >= totalRoundsRoom;
   const voteTimeLeft = isVoting && room.vote
     ? Math.max(0, Math.ceil((20000 - (Date.now() - room.vote.startedAt)) / 1000))
     : 0;
 
   return (
     <div className="min-h-screen bg-gradient-lobby p-4 flex flex-col">
+      {showContestModal && (
+        <ContestModal
+          answer={room.log?.[0]?.answer || ""}
+          winner={winnerPlayer?.name || "?"}
+          onCancel={() => setShowContestModal(false)}
+          onConfirm={confirmContest}
+        />
+      )}
       <div className="w-full max-w-md mx-auto flex flex-col gap-3 flex-1">
         <header className="flex items-center justify-between">
-          <button onClick={leaveRoom} className="text-stone-700 text-sm">← Quitter</button>
-          <div className="text-center">
-            <div className="text-xs text-stone-600">SALON</div>
+          <button onClick={leaveRoom} className="text-stone-700 text-sm py-2 px-1">← Quitter</button>
+          <button
+            onClick={copyRoomCode}
+            className="text-center px-3 py-1 rounded-lg hover:bg-white/60 active:bg-white/80 transition-all"
+            title="Copier le lien de partage"
+          >
+            <div className="text-xs text-stone-600">SALON {copied && "· copié ✓"}</div>
             <div className="font-mono font-bold text-2xl tracking-widest text-stone-900">{roomCode}</div>
+          </button>
+          <div className="text-right text-sm text-stone-700 py-2 px-1">
+            {isFinished ? "Fini" : `Manche ${room.roundNumber || 0}/${totalRoundsRoom}`}
           </div>
-          <div className="text-right text-sm text-stone-700">Manche {room.roundNumber}</div>
         </header>
 
         <div className="bg-white/80 rounded-2xl p-3">
@@ -1634,6 +1783,48 @@ const MultiRoom = ({ onBack }) => {
                 QUE LES JEUX COMMENCENT
               </button>
             )}
+          </div>
+        )}
+
+        {isFinished && (
+          <div className="flex flex-col items-center gap-4 py-6">
+            <div className="text-center">
+              <div className="text-xs tracking-[0.3em] text-stone-600">PARTIE TERMINÉE</div>
+              <h2 className="font-display text-5xl text-stone-900 mt-2">🏆 PODIUM</h2>
+            </div>
+            <div className="w-full bg-white/80 rounded-2xl p-4 space-y-2">
+              {(room.finalPodium || players).map((p, i) => (
+                <div
+                  key={p.id}
+                  className={`flex justify-between items-center p-3 rounded-xl ${
+                    i === 0 ? "bg-gradient-to-r from-yellow-100 to-amber-100 border-2 border-amber-400" :
+                    i === 1 ? "bg-stone-100 border-2 border-stone-300" :
+                    i === 2 ? "bg-orange-50 border-2 border-orange-200" :
+                    "bg-white/60"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">
+                      {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
+                    </span>
+                    <span className={`font-medium ${i === 0 ? "font-display text-xl" : ""}`}>
+                      {p.name}
+                    </span>
+                  </div>
+                  <span className="font-bold text-lg">{p.score} pts</span>
+                </div>
+              ))}
+            </div>
+            {isHost ? (
+              <button onClick={rematch} className="btn-multi text-white px-8 py-4 rounded-2xl font-display text-xl shadow-lg">
+                REVANCHE ⚔️
+              </button>
+            ) : (
+              <div className="text-sm text-stone-700 text-center">En attente d'une revanche de l'hôte...</div>
+            )}
+            <button onClick={leaveRoom} className="text-sm text-stone-600 underline mt-2">
+              Retour au menu
+            </button>
           </div>
         )}
 
@@ -1769,7 +1960,7 @@ const MultiRoom = ({ onBack }) => {
                 <div className="text-xs text-stone-600 mt-1">Toute la troupe a rendu les armes</div>
                 {isHost ? (
                   <button onClick={nextRound} className="mt-3 bg-stone-900 text-white px-6 py-2 rounded-xl">
-                    Nouvelle épreuve →
+                    {isLastRound ? "Voir le podium 🏆" : "Nouvelle épreuve →"}
                   </button>
                 ) : (
                   <div className="mt-3 text-xs text-stone-600">Le maître de cérémonie prépare la suite...</div>
@@ -1798,7 +1989,7 @@ const MultiRoom = ({ onBack }) => {
                   )}
                   {room.winner !== playerId && (
                     <button
-                      onClick={contestRound}
+                      onClick={openContest}
                       className="text-xs text-red-800 underline hover:text-red-900 mt-1"
                     >
                       ⚠️ Défier ce verdict
@@ -1834,12 +2025,29 @@ const MultiRoom = ({ onBack }) => {
 
 const CHALLENGE_LENGTH = 10;
 
+// Encodage thème dans le code : 4 chiffres = libre, + lettre finale = thème
+const THEME_LETTER = { cinema: "C", sport: "S", musique: "M", politique: "P", litterature: "L" };
+const LETTER_TO_THEME = Object.fromEntries(Object.entries(THEME_LETTER).map(([k, v]) => [v, k]));
+
+const parseChallengeCode = (raw) => {
+  const clean = (raw || "").trim().toUpperCase();
+  const m = clean.match(/^(\d{4})([A-Z]?)$/);
+  if (!m) return null;
+  const themeId = m[2] ? LETTER_TO_THEME[m[2]] : "free";
+  if (m[2] && !themeId) return null;
+  return { digits: m[1], themeId: themeId || "free", full: clean };
+};
+
 const generateChallengePlates = (seed) => {
   const rng = mulberry32(seed);
   return Array.from({ length: CHALLENGE_LENGTH }, () => randomPlate("normal", rng));
 };
 
-const generateChallengeCode = () => Math.floor(1000 + Math.random() * 9000).toString();
+const generateChallengeCode = (themeId) => {
+  const digits = Math.floor(1000 + Math.random() * 9000).toString();
+  const letter = themeId && themeId !== "free" ? (THEME_LETTER[themeId] || "") : "";
+  return digits + letter;
+};
 
 const ChallengeMode = ({ onBack }) => {
   const [phase, setPhase] = useState("menu"); // menu | playing | done
@@ -1855,6 +2063,8 @@ const ChallengeMode = ({ onBack }) => {
   const [results, setResults] = useState([]); // par plaque
   const [leaderboard, setLeaderboard] = useState([]);
   const [error, setError] = useState("");
+  const [selectedTheme, setSelectedTheme] = useState(THEMES[0]);
+  const [currentTheme, setCurrentTheme] = useState(THEMES[0]); // thème en cours de défi
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -1867,9 +2077,12 @@ const ChallengeMode = ({ onBack }) => {
   };
 
   const startChallenge = (challengeCode) => {
-    const seed = parseInt(challengeCode);
-    if (isNaN(seed)) { setError("Code invalide"); return; }
-    setCode(challengeCode);
+    const parsed = parseChallengeCode(challengeCode);
+    if (!parsed) { setError("Code invalide"); return; }
+    const seed = parseInt(parsed.digits);
+    const theme = THEMES.find(t => t.id === parsed.themeId) || THEMES[0];
+    setCode(parsed.full);
+    setCurrentTheme(theme);
     setPlates(generateChallengePlates(seed));
     setCurrentIdx(0);
     setScore(0);
@@ -1883,13 +2096,13 @@ const ChallengeMode = ({ onBack }) => {
 
   const createChallenge = () => {
     if (!pseudo.trim()) { setError("Choisis un pseudo pour partager ton score."); return; }
-    startChallenge(generateChallengeCode());
+    startChallenge(generateChallengeCode(selectedTheme.id));
   };
 
   const joinChallenge = () => {
     if (!pseudo.trim()) { setError("Choisis un pseudo."); return; }
-    if (!/^\d{4}$/.test(inputCode.trim())) { setError("Le code fait 4 chiffres."); return; }
-    startChallenge(inputCode.trim());
+    if (!parseChallengeCode(inputCode)) { setError("Code invalide (ex : 1234 ou 1234C)."); return; }
+    startChallenge(inputCode);
   };
 
   const handleSubmit = async () => {
@@ -1899,22 +2112,24 @@ const ChallengeMode = ({ onBack }) => {
 
     if (!result.valid) {
       setFeedback({ valid: false, reason: result.reason });
-      setTimeout(() => setFeedback(null), 2000);
+      setTimeout(() => setFeedback(null), 3500);
       return;
     }
 
     setVerifying(true);
-    const verification = await verifyCelebrities(currentPlate, result.names, result.mode, { id: "free" });
+    const verification = await verifyCelebrities(currentPlate, result.names, result.mode, currentTheme);
     setVerifying(false);
 
     let pts = 0;
     let accepted = false;
+    const themeMatched = currentTheme.id === "free" || verification._fallback ||
+      (verification.people || []).every(p => p.matches_theme !== false);
     if (verification.valid || verification._fallback) {
-      pts = computePoints(result, false, 0); // pas de multiplicateur streak en défi (équité)
+      pts = computePoints(result, currentTheme.id !== "free" && themeMatched, 0);
       accepted = true;
     }
 
-    setResults(r => [...r, { plate: currentPlate, answer: result.names.join(" + "), points: pts, accepted, mode: result.mode }]);
+    setResults(r => [...r, { plate: currentPlate, answer: result.names.join(" + "), points: pts, accepted, mode: result.mode, themeBonus: currentTheme.id !== "free" && themeMatched }]);
     setScore(s => s + pts);
     setFeedback({ valid: accepted, points: pts, reason: accepted ? "" : (verification.reason || "Non reconnu") });
 
@@ -1982,6 +2197,26 @@ const ChallengeMode = ({ onBack }) => {
             />
           </div>
 
+          <div className="bg-white/80 p-5 rounded-2xl space-y-2">
+            <label className="block text-xs text-stone-600 uppercase tracking-wider">Thème du défi</label>
+            <div className="grid grid-cols-3 gap-2">
+              {THEMES.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setSelectedTheme(t)}
+                  className={`px-2 py-2 rounded-xl text-xs font-medium transition-all ${
+                    selectedTheme.id === t.id ? "bg-stone-900 text-white" : "bg-stone-100 text-stone-700"
+                  }`}
+                >
+                  {t.emoji} {t.label}
+                </button>
+              ))}
+            </div>
+            {selectedTheme.id !== "free" && (
+              <div className="text-xs text-stone-600 italic">{selectedTheme.hint}</div>
+            )}
+          </div>
+
           <button
             onClick={createChallenge}
             className="btn-chrono text-white p-5 rounded-2xl font-display text-2xl active:scale-98 transition-all shadow-lg"
@@ -1995,9 +2230,8 @@ const ChallengeMode = ({ onBack }) => {
             <label className="block text-xs text-stone-600 uppercase tracking-wider">Code du défi</label>
             <input
               value={inputCode}
-              onChange={e => setInputCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
-              placeholder="1234"
-              inputMode="numeric"
+              onChange={e => setInputCode(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 5))}
+              placeholder="1234 ou 1234C"
               className="w-full p-3 rounded-xl border-2 border-stone-300 focus:border-stone-900 outline-none font-mono text-center text-2xl tracking-widest"
             />
             <button
@@ -2102,6 +2336,15 @@ const ChallengeMode = ({ onBack }) => {
           <div className="h-full bg-stone-900 transition-all" style={{ width: `${(currentIdx / plates.length) * 100}%` }}/>
         </div>
 
+        {currentTheme.id !== "free" && (
+          <div className="bg-purple-50 border-2 border-purple-300 rounded-xl px-3 py-2 text-center text-sm">
+            <span className="text-purple-700 font-medium">
+              🎯 Thème : {currentTheme.emoji} {currentTheme.label}
+            </span>
+            <div className="text-xs text-purple-600 italic">{currentTheme.hint}</div>
+          </div>
+        )}
+
         <div className="flex justify-center py-4">
           <Plate plate={currentPlate} size="lg" />
         </div>
@@ -2160,6 +2403,296 @@ const ChallengeMode = ({ onBack }) => {
 };
 
 // ============================================================
+// MODE SUR LE VIF (une plaque IRL, tu la craques)
+// ============================================================
+
+const PLATE_INPUT_REGEX = /^([A-Z]{2})[-\s]?(\d{2,3})[-\s]?([A-Z]{2})$/;
+
+// Normalise une entrée utilisateur en plaque FR standard "AA-000-AA".
+const normalizePlateInput = (raw) => {
+  const clean = (raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (!/^[A-Z]{2}\d{2,3}[A-Z]{2}$/.test(clean)) return null;
+  const l1 = clean.slice(0, 2);
+  const l2 = clean.slice(-2);
+  const digits = clean.slice(2, -2).padStart(3, "0");
+  return `${l1}-${digits}-${l2}`;
+};
+
+const SurLeVif = ({ onBack }) => {
+  const [phase, setPhase] = useState("input"); // input | solve
+  const [rawPlate, setRawPlate] = useState("");
+  const [plate, setPlate] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [feedback, setFeedback] = useState(null);
+  const [verifying, setVerifying] = useState(false);
+  const [askingClaude, setAskingClaude] = useState(false);
+  const [claudeHint, setClaudeHint] = useState(null);
+  const [history, setHistory] = useState([]); // plaques craquées cette session
+  const [inputError, setInputError] = useState("");
+  const inputRef = useRef(null);
+  const answerRef = useRef(null);
+
+  const submitPlate = () => {
+    const normalized = normalizePlateInput(rawPlate);
+    if (!normalized) {
+      setInputError("Format attendu : AA-123-AA (2 lettres, 2 ou 3 chiffres, 2 lettres)");
+      return;
+    }
+    setPlate(normalized);
+    setPhase("solve");
+    setAnswer("");
+    setFeedback(null);
+    setClaudeHint(null);
+    setInputError("");
+    setTimeout(() => answerRef.current?.focus(), 100);
+  };
+
+  const handleSubmit = async () => {
+    if (!answer.trim() || verifying) return;
+    const result = validateAnswer(answer, plate);
+    if (!result.valid) {
+      setFeedback({ valid: false, reason: result.reason });
+      setTimeout(() => setFeedback(null), 3500);
+      return;
+    }
+    setVerifying(true);
+    const verification = await verifyCelebrities(plate, result.names, result.mode, { id: "free" });
+    setVerifying(false);
+    const accepted = verification.valid || verification._fallback;
+    if (accepted) {
+      setHistory(h => [{ plate, answer: result.names.join(" + "), mode: result.mode, comment: verification.comment || "" }, ...h].slice(0, 20));
+      setFeedback({
+        valid: true,
+        mode: result.mode,
+        comment: verification.comment || "",
+      });
+    } else {
+      const bad = (verification.people || []).filter(p => !p.exists).map(p => p.name).join(", ");
+      setFeedback({
+        valid: false,
+        reason: bad ? `Le jury ne reconnaît pas : ${bad}` : (verification.reason || "Le jury refuse."),
+      });
+      setTimeout(() => setFeedback(null), 4500);
+    }
+  };
+
+  const handleAskClaude = async () => {
+    if (askingClaude) return;
+    setAskingClaude(true);
+    const hint = await askClaudeForAnswer(plate, { id: "free" });
+    setAskingClaude(false);
+    setClaudeHint(hint);
+  };
+
+  const nextPlate = () => {
+    setPhase("input");
+    setRawPlate("");
+    setPlate("");
+    setAnswer("");
+    setFeedback(null);
+    setClaudeHint(null);
+    setInputError("");
+    setTimeout(() => inputRef.current?.focus(), 100);
+  };
+
+  // ============ PHASE : SAISIE ============
+  if (phase === "input") {
+    return (
+      <div className="min-h-screen bg-gradient-cream p-4 flex flex-col">
+        <div className="w-full max-w-md mx-auto flex flex-col gap-4 flex-1">
+          <button onClick={onBack} className="self-start text-stone-700 text-sm py-2">← Menu</button>
+
+          <div className="text-center mt-4">
+            <div className="text-xs tracking-[0.3em] text-stone-600 mb-1">MODE</div>
+            <h2 className="font-display text-6xl text-stone-900">SUR LE VIF</h2>
+            <p className="text-sm text-stone-700 mt-3 leading-relaxed">
+              Tu croises une plaque intrigante sur l'autoroute ?<br/>
+              Rentre-la, craque-la, retourne à ta route la tête haute.
+            </p>
+          </div>
+
+          <div className="bg-white/80 p-5 rounded-2xl space-y-3 mt-4">
+            <label className="block text-xs text-stone-600 uppercase tracking-wider">Ta plaque</label>
+            <input
+              ref={inputRef}
+              autoFocus
+              value={rawPlate}
+              onChange={e => setRawPlate(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && submitPlate()}
+              placeholder="AA-123-AA"
+              className="w-full p-4 rounded-xl border-2 border-stone-300 focus:border-stone-900 outline-none font-mono text-center text-2xl tracking-widest uppercase"
+              maxLength={9}
+              autoCapitalize="characters"
+              autoComplete="off"
+            />
+            <div className="text-xs text-stone-500 text-center">
+              2 lettres · 2 ou 3 chiffres · 2 lettres
+            </div>
+          </div>
+
+          {inputError && (
+            <div className="bg-red-100 text-red-900 p-3 rounded-xl text-sm text-center">{inputError}</div>
+          )}
+
+          <button
+            onClick={submitPlate}
+            disabled={!rawPlate.trim()}
+            className="bg-emerald-700 hover:bg-emerald-800 text-white p-5 rounded-2xl font-display text-2xl shadow-lg disabled:bg-stone-400"
+          >
+            👀 EN CHASSE
+          </button>
+
+          {history.length > 0 && (
+            <div className="mt-4">
+              <div className="text-xs text-stone-600 mb-2">CETTE SESSION</div>
+              <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                {history.map((h, i) => (
+                  <div key={i} className="bg-white/60 rounded-lg p-2 text-xs flex justify-between items-center">
+                    <span>
+                      <span className="font-mono font-bold text-stone-900">{h.plate}</span>
+                      <span className="text-stone-700 ml-2">→ {h.answer}</span>
+                    </span>
+                    {h.mode === "chasles" && <span className="text-lg">⛓️</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ============ PHASE : RÉSOLUTION ============
+  return (
+    <div className="min-h-screen bg-gradient-cream p-4 flex flex-col">
+      <div className="w-full max-w-md mx-auto flex flex-col gap-3 flex-1">
+        <header className="flex items-center justify-between">
+          <button onClick={onBack} className="text-stone-700 text-sm py-2">← Menu</button>
+          <div className="text-center">
+            <div className="text-xs text-stone-600">SUR LE VIF</div>
+            <div className="text-sm font-bold text-stone-900">{history.length} craquée{history.length > 1 ? "s" : ""}</div>
+          </div>
+          <button onClick={nextPlate} className="text-stone-700 text-sm py-2">Nouvelle ↻</button>
+        </header>
+
+        <div className="flex justify-center py-4">
+          <Plate plate={plate} size="lg" />
+        </div>
+
+        <div className="text-center text-stone-600 text-sm">
+          <span className="font-mono font-bold">{getPlateLetters(plate)[0]}{getPlateLetters(plate)[1]}</span>
+          {" + "}
+          <span className="font-mono font-bold">{getPlateLetters(plate)[2]}{getPlateLetters(plate)[3]}</span>
+          {canChain(plate) && (
+            <>
+              {"  ou Chasles ⛓️  "}
+              <span className="font-mono font-bold">{getPlateLetters(plate)[0]}{getPlateLetters(plate)[3]}</span>
+            </>
+          )}
+        </div>
+
+        <div className="relative">
+          <input
+            ref={answerRef}
+            value={answer}
+            onChange={e => setAnswer(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleSubmit()}
+            placeholder="ex : Daniel Auteuil et Paul Young"
+            className="w-full p-4 pr-14 rounded-2xl border-2 border-stone-300 focus:border-stone-900 outline-none text-base bg-white"
+            disabled={feedback?.valid}
+          />
+          <MicButton
+            onTranscript={(t) => setAnswer(prev => (prev.trim() ? prev + " " : "") + t)}
+            disabled={verifying || feedback?.valid}
+          />
+        </div>
+
+        {verifying && (
+          <div className="p-3 rounded-xl text-sm text-center font-medium bg-blue-50 text-blue-900 border-2 border-blue-300 flex items-center justify-center gap-2">
+            <span className="inline-block w-3 h-3 border-2 border-blue-900 border-t-transparent rounded-full animate-spin"/>
+            Le jury consulte les archives...
+          </div>
+        )}
+
+        {askingClaude && (
+          <div className="p-3 rounded-xl bg-purple-50 border-2 border-purple-300 text-sm text-center font-medium text-purple-900 flex items-center justify-center gap-2">
+            <span className="inline-block w-3 h-3 border-2 border-purple-900 border-t-transparent rounded-full animate-spin"/>
+            Claude fouille les annales de l'Histoire...
+          </div>
+        )}
+
+        {!askingClaude && claudeHint && (
+          <div className="p-3 rounded-xl bg-purple-50 border-2 border-purple-300 text-sm space-y-1">
+            <div className="text-xs text-purple-700 tracking-widest">🐈 L'ORACLE RÉVÈLE</div>
+            <div className="font-medium text-purple-950">{claudeHint.answer}</div>
+            {claudeHint.explanation && (
+              <div className="text-xs text-purple-800 italic">{claudeHint.explanation}</div>
+            )}
+          </div>
+        )}
+
+        {!verifying && feedback && (
+          <div className={`p-3 rounded-xl text-sm font-medium ${
+            feedback.valid
+              ? "bg-green-100 text-green-900 border-2 border-green-400"
+              : "bg-red-50 text-red-900 border-2 border-red-300"
+          }`}>
+            {feedback.valid ? (
+              <div className="text-center space-y-1">
+                <div className="font-display text-lg">✓ CRAQUÉE !</div>
+                {feedback.mode === "chasles" && <div className="text-xs">⛓️ Par Chasles, mathématicien satisfait</div>}
+                {feedback.comment && <div className="text-xs italic">{feedback.comment}</div>}
+              </div>
+            ) : (
+              <div className="text-center">{feedback.reason}</div>
+            )}
+          </div>
+        )}
+
+        <div className="grid grid-cols-3 gap-2 mt-2">
+          <button
+            onClick={handleAskClaude}
+            disabled={verifying || askingClaude || feedback?.valid}
+            className="p-3 bg-purple-100 text-purple-900 rounded-2xl font-medium text-xs sm:text-sm hover:bg-purple-200 disabled:opacity-50"
+          >
+            {askingClaude ? (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-block w-3 h-3 border-2 border-purple-900 border-t-transparent rounded-full animate-spin"/>
+                ...
+              </span>
+            ) : "🐈 Langue au chat"}
+          </button>
+          <button
+            onClick={nextPlate}
+            disabled={verifying}
+            className="p-3 bg-stone-200 text-stone-700 rounded-2xl font-medium text-xs sm:text-sm hover:bg-stone-300 disabled:opacity-50"
+          >
+            Autre plaque
+          </button>
+          {feedback?.valid ? (
+            <button
+              onClick={nextPlate}
+              className="p-3 bg-emerald-700 text-white rounded-2xl font-medium text-xs sm:text-sm hover:bg-emerald-800"
+            >
+              En avant ↻
+            </button>
+          ) : (
+            <button
+              onClick={handleSubmit}
+              disabled={!answer.trim() || verifying}
+              className="p-3 bg-stone-900 text-white rounded-2xl font-medium text-xs sm:text-sm hover:bg-stone-800 disabled:bg-stone-400"
+            >
+              {verifying ? "..." : "En avant !"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
 // APP PRINCIPALE
 // ============================================================
 
@@ -2173,6 +2706,7 @@ export default function App() {
       {mode === "chrono" && <SoloChrono onBack={() => setMode(null)} />}
       {mode === "multi" && <MultiRoom onBack={() => setMode(null)} />}
       {mode === "defi" && <ChallengeMode onBack={() => setMode(null)} />}
+      {mode === "vif" && <SurLeVif onBack={() => setMode(null)} />}
     </>
   );
 }

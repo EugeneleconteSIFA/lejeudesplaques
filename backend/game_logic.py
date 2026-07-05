@@ -22,6 +22,26 @@ class VerifyResult(TypedDict):
 def remove_accents(s: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn")
 
+def clean_pseudo(raw: str, max_len: int = 16) -> str:
+    """Nettoie un pseudo : trim, retire caractères de contrôle, limite la longueur."""
+    if not raw:
+        return ""
+    # Retire les catégories Unicode de contrôle (Cc, Cf, Cs, Co, Cn)
+    cleaned = "".join(c for c in raw if unicodedata.category(c)[0] != "C")
+    # Trim + collapse whitespace
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned[:max_len]
+
+def escape_for_prompt(s: str) -> str:
+    """Neutralise les tentatives d'injection dans un prompt Claude."""
+    if not s:
+        return ""
+    # Retire les caractères de contrôle
+    s = "".join(c for c in s if unicodedata.category(c)[0] != "C")
+    # Neutralise les guillemets et backticks
+    s = s.replace('"', '“').replace("'", "’").replace("`", "'")
+    return s[:100]
+
 def parse_names(text: str) -> list[dict]:
     normalized = remove_accents(text.strip().lower())
     normalized = re.sub(r"[.,;]", " ", normalized)
@@ -130,10 +150,10 @@ def extract_json(text: str) -> Optional[dict]:
 def verify_prompt(plate: str, names: list[str], mode: str, theme: Optional[dict]) -> str:
     theme_active = theme and theme.get("id") != "free"
     theme_context = (
-        f"Le thème imposé est: {theme['label']} ({theme.get('hint', '')})."
+        f"Le thème imposé est: {escape_for_prompt(theme.get('label', ''))} ({escape_for_prompt(theme.get('hint', ''))})."
         if theme_active else "Aucun thème imposé."
     )
-    people_list = "\n".join(f'{i+1}. "{n}"' for i, n in enumerate(names))
+    people_list = "\n".join(f'{i+1}. "{escape_for_prompt(n)}"' for i, n in enumerate(names))
 
     return f"""Tu es l'arbitre du jeu des initiales sur plaques d'immatriculation françaises.
 
@@ -167,7 +187,7 @@ def ask_prompt(plate: str, theme: Optional[dict], insist: bool = False) -> str:
     letters = [c for c in plate.upper() if c.isalpha()]
     L1, L2, L3, L4 = letters[:4]
     chainable = L2 == L3
-    theme_ctx = f"Contrainte thème: {theme['label']} uniquement." if (theme and theme.get('id') != 'free') else ""
+    theme_ctx = f"Contrainte thème: {escape_for_prompt(theme.get('label', ''))} uniquement." if (theme and theme.get('id') != 'free') else ""
 
     insist_text = (
         f'\n⚠️ ATTENTION : Vérifie deux fois que la première lettre du NOM DE FAMILLE correspond bien.\n'

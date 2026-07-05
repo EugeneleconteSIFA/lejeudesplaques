@@ -18,10 +18,13 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from game_logic import (
     validate_answer, can_chain, compute_points, extract_json,
-    verify_prompt, ask_prompt, VerifyResult
+    verify_prompt, ask_prompt, VerifyResult, clean_pseudo
 )
 
 # ============================================================
@@ -32,7 +35,18 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5")
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
 DB_PATH = os.getenv("DB_PATH", "/var/lib/initiales/initiales.db")
-ROOM_TTL_SECONDS = 30 * 60  # 30 minutes d'inactivité → cleanup
+ROOM_TTL_SECONDS = 30 * 60      # 30 minutes d'inactivité → cleanup
+CHECKING_TTL_MS = 30_000        # Un joueur bloque la manche max 30s
+VOTE_TTL_MS = 25_000            # Vote auto-résolu après 25s (frontend affiche 20s)
+MAX_PLAYERS_PER_ROOM = 20
+MAX_CHALLENGE_SCORE = 200       # 10 plaques × 15pts + marge multipl. série max ~= 200
+DEFAULT_ROUNDS_MULTI = 10       # Nombre de manches par partie multi
+
+# ============================================================
+# RATE LIMITING (par IP)
+# ============================================================
+
+limiter = Limiter(key_func=get_remote_address)
 
 # ============================================================
 # STOCKAGE SALONS MULTI (en mémoire)
@@ -43,18 +57,35 @@ rooms: dict[str, dict] = {}
 rooms_lock = asyncio.Lock()  # sérialise les mutations par salon
 
 async def cleanup_rooms_task():
-    """Supprime les salons inactifs toutes les 5 minutes."""
+    """Toutes les 30s : purge les checking/vote figés et les salons inactifs."""
     while True:
-        await asyncio.sleep(300)
-        now = time.time()
+        await asyncio.sleep(30)
+        now_s = time.time()
+        now_ms = now_s * 1000
         async with rooms_lock:
             expired = []
             for code, room in list(rooms.items()):
-                last_activity = max(
-                    (p.get("lastSeen", 0) for p in room.get("players", {}).values()),
-                    default=0
-                )
-                if now - last_activity > ROOM_TTL_SECONDS:
+                # 1. Débloquer un checking figé (crash du proposeur)
+                checking = room.get("checking")
+                if checking and now_ms - checking.get("startedAt", 0) > CHECKING_TTL_MS:
+                    room["checking"] = None
+                # 2. Résoudre un vote expiré
+                vote = room.get("vote")
+                if vote and now_ms - vote.get("startedAt", 0) > VOTE_TTL_MS:
+                    if room["status"] == "voting":
+                        _resolve_vote(room)
+                # 3. Éjecter les joueurs silencieux depuis > 5 min (mais garder au moins 1)
+                stale_cutoff = now_ms - 5 * 60 * 1000
+                players = room.get("players", {})
+                if len(players) > 1:
+                    stale = [pid for pid, p in players.items() if p.get("lastSeen", 0) < stale_cutoff]
+                    for pid in stale:
+                        players.pop(pid, None)
+                        if room.get("host") == pid and players:
+                            room["host"] = next(iter(players))
+                # 4. Salon complètement inactif
+                last_activity = max((p.get("lastSeen", 0) for p in players.values()), default=0) / 1000
+                if now_s - last_activity > ROOM_TTL_SECONDS or not players:
                     expired.append(code)
             for code in expired:
                 rooms.pop(code, None)
@@ -66,6 +97,8 @@ async def cleanup_rooms_task():
 def init_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS challenge_scores (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,6 +110,10 @@ def init_db():
             )
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_code_score ON challenge_scores(code, score DESC)")
+        # UNIQUE(code, pseudo) : chaque pseudo n'a qu'une entrée par défi (son meilleur score)
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uniq_code_pseudo ON challenge_scores(code, pseudo)"
+        )
 
 # ============================================================
 # LIFESPAN
@@ -90,6 +127,8 @@ async def lifespan(app: FastAPI):
     cleanup_task.cancel()
 
 app = FastAPI(title="Initiales API", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -136,7 +175,8 @@ class VerifyRequest(BaseModel):
     theme: Optional[dict] = None
 
 @app.post("/api/verify")
-async def api_verify(req: VerifyRequest):
+@limiter.limit("20/minute")
+async def api_verify(request: Request, req: VerifyRequest):
     prompt = verify_prompt(req.plate, req.names, req.mode, req.theme)
     try:
         text = await call_claude(prompt, max_tokens=1000)
@@ -155,7 +195,8 @@ class AskRequest(BaseModel):
     insist: bool = False
 
 @app.post("/api/ask-claude")
-async def api_ask_claude(req: AskRequest):
+@limiter.limit("10/minute")
+async def api_ask_claude(request: Request, req: AskRequest):
     prompt = ask_prompt(req.plate, req.theme, req.insist)
     try:
         text = await call_claude(prompt, max_tokens=1000)
@@ -204,11 +245,15 @@ def touch_player(room: dict, player_id: str):
 
 class CreateRoomRequest(BaseModel):
     pseudo: str
+    totalRounds: Optional[int] = DEFAULT_ROUNDS_MULTI
 
 @app.post("/api/rooms")
-async def create_room(req: CreateRoomRequest):
-    if not req.pseudo.strip():
-        raise HTTPException(400, "Pseudo required")
+@limiter.limit("15/minute")
+async def create_room(request: Request, req: CreateRoomRequest):
+    pseudo = clean_pseudo(req.pseudo)
+    if not pseudo:
+        raise HTTPException(400, "Pseudo requis")
+    total_rounds = max(3, min(30, req.totalRounds or DEFAULT_ROUNDS_MULTI))
     async with rooms_lock:
         code = new_room_code()
         player_id = uuid.uuid4().hex[:8]
@@ -218,30 +263,43 @@ async def create_room(req: CreateRoomRequest):
             "status": "waiting",
             "plate": random_plate(),
             "roundNumber": 0,
+            "totalRounds": total_rounds,
             "winner": None,
             "players": {
-                player_id: {"id": player_id, "name": req.pseudo[:16], "score": 0, "lastSeen": time.time() * 1000}
+                player_id: {"id": player_id, "name": pseudo, "score": 0, "lastSeen": time.time() * 1000}
             },
             "log": [],
             "checking": None,
             "vote": None,
             "passes": [],
+            "finalPodium": None,  # rempli à la fin de la dernière manche
         }
         rooms[code] = room
     return {"playerId": player_id, "room": room}
 
 class JoinRoomRequest(BaseModel):
     pseudo: str
+    playerId: Optional[str] = None  # pour rejoindre après refresh
 
 @app.post("/api/rooms/{code}/join")
-async def join_room(code: str, req: JoinRoomRequest):
+@limiter.limit("20/minute")
+async def join_room(request: Request, code: str, req: JoinRoomRequest):
+    pseudo = clean_pseudo(req.pseudo)
+    if not pseudo:
+        raise HTTPException(400, "Pseudo requis")
     async with rooms_lock:
         room = rooms.get(code.upper())
         if not room:
             raise HTTPException(404, "Salon introuvable")
+        # Reprise de session : le playerId envoyé existe encore ? on met juste à jour lastSeen
+        if req.playerId and req.playerId in room["players"]:
+            room["players"][req.playerId]["lastSeen"] = time.time() * 1000
+            return {"playerId": req.playerId, "room": room, "resumed": True}
+        if len(room["players"]) >= MAX_PLAYERS_PER_ROOM:
+            raise HTTPException(409, "Salon complet")
         player_id = uuid.uuid4().hex[:8]
         room["players"][player_id] = {
-            "id": player_id, "name": req.pseudo[:16], "score": 0, "lastSeen": time.time() * 1000
+            "id": player_id, "name": pseudo, "score": 0, "lastSeen": time.time() * 1000
         }
     return {"playerId": player_id, "room": room}
 
@@ -275,6 +333,13 @@ async def leave_room(code: str, req: LeaveRequest):
 class HostActionRequest(BaseModel):
     playerId: str
 
+def _build_podium(room: dict) -> list[dict]:
+    players = sorted(
+        [{"name": p["name"], "score": p["score"], "id": p["id"]} for p in room["players"].values()],
+        key=lambda p: -p["score"],
+    )
+    return players
+
 @app.post("/api/rooms/{code}/start-round")
 async def start_round(code: str, req: HostActionRequest):
     async with rooms_lock:
@@ -283,6 +348,12 @@ async def start_round(code: str, req: HostActionRequest):
             raise HTTPException(404, "Salon introuvable")
         if room["host"] != req.playerId:
             raise HTTPException(403, "Seul l'hôte peut lancer une manche")
+        total = room.get("totalRounds", DEFAULT_ROUNDS_MULTI)
+        # Fin de partie
+        if room["roundNumber"] >= total and room["status"] in ("validated", "skipped"):
+            room["status"] = "finished"
+            room["finalPodium"] = _build_podium(room)
+            return room
         room["status"] = "playing"
         room["plate"] = random_plate()
         room["roundNumber"] += 1
@@ -290,18 +361,41 @@ async def start_round(code: str, req: HostActionRequest):
         room["checking"] = None
         room["vote"] = None
         room["passes"] = []
+        room["finalPodium"] = None
     return room
 
 @app.post("/api/rooms/{code}/next-round")
 async def next_round(code: str, req: HostActionRequest):
     return await start_round(code, req)
 
+@app.post("/api/rooms/{code}/rematch")
+async def rematch(code: str, req: HostActionRequest):
+    """Après une fin de partie, l'hôte relance une nouvelle partie (scores remis à 0)."""
+    async with rooms_lock:
+        room = rooms.get(code.upper())
+        if not room:
+            raise HTTPException(404, "Salon introuvable")
+        if room["host"] != req.playerId:
+            raise HTTPException(403, "Seul l'hôte peut relancer")
+        for p in room["players"].values():
+            p["score"] = 0
+        room["status"] = "waiting"
+        room["roundNumber"] = 0
+        room["log"] = []
+        room["winner"] = None
+        room["checking"] = None
+        room["vote"] = None
+        room["passes"] = []
+        room["finalPodium"] = None
+    return room
+
 class SubmitRequest(BaseModel):
     playerId: str
     answer: str
 
 @app.post("/api/rooms/{code}/submit")
-async def submit_answer(code: str, req: SubmitRequest):
+@limiter.limit("60/minute")
+async def submit_answer(request: Request, code: str, req: SubmitRequest):
     """
     Soumet une réponse en multi.
     Le serveur valide les initiales, lock le salon, appelle Claude pour vérification,
@@ -535,26 +629,50 @@ def _resolve_vote(room: dict):
 # ENDPOINTS — DÉFIS PARTAGÉS
 # ============================================================
 
+def _valid_challenge_code(code: str) -> bool:
+    """Accepte 1234 (libre) ou 1234X où X = lettre de thème."""
+    if not code:
+        return False
+    if len(code) == 4:
+        return code.isdigit()
+    if len(code) == 5:
+        return code[:4].isdigit() and code[4].isalpha()
+    return False
+
 class ChallengeScoreRequest(BaseModel):
     pseudo: str
     score: int
     solved: int = 0
 
 @app.post("/api/challenges/{code}/score")
-async def submit_challenge_score(code: str, req: ChallengeScoreRequest):
-    if not code.isdigit() or len(code) != 4:
+@limiter.limit("30/minute")
+async def submit_challenge_score(request: Request, code: str, req: ChallengeScoreRequest):
+    if not _valid_challenge_code(code):
         raise HTTPException(400, "Code invalide")
+    pseudo = clean_pseudo(req.pseudo)
+    if not pseudo:
+        raise HTTPException(400, "Pseudo requis")
+    score = max(0, min(MAX_CHALLENGE_SCORE, int(req.score)))
+    solved = max(0, min(20, int(req.solved)))
     with sqlite3.connect(DB_PATH) as conn:
-        conn.execute(
-            "INSERT INTO challenge_scores (code, pseudo, score, solved) VALUES (?, ?, ?, ?)",
-            (code, req.pseudo[:16], req.score, req.solved),
-        )
+        # UPSERT : garde le meilleur score pour chaque (code, pseudo)
+        conn.execute("""
+            INSERT INTO challenge_scores (code, pseudo, score, solved)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(code, pseudo) DO UPDATE SET
+                score = MAX(score, excluded.score),
+                solved = CASE WHEN excluded.score > challenge_scores.score
+                              THEN excluded.solved ELSE challenge_scores.solved END,
+                played_at = CASE WHEN excluded.score > challenge_scores.score
+                                 THEN CURRENT_TIMESTAMP ELSE challenge_scores.played_at END
+        """, (code, pseudo, score, solved))
     return {"ok": True}
 
 @app.get("/api/challenges/{code}/leaderboard")
 async def get_challenge_leaderboard(code: str, limit: int = 10):
-    if not code.isdigit() or len(code) != 4:
+    if not _valid_challenge_code(code):
         raise HTTPException(400, "Code invalide")
+    limit = max(1, min(50, limit))
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
@@ -569,4 +687,4 @@ async def get_challenge_leaderboard(code: str, limit: int = 10):
 
 @app.get("/api/health")
 async def health():
-    return {"ok": True, "rooms": len(rooms), "model": CLAUDE_MODEL}
+    return {"ok": True, "model": CLAUDE_MODEL}

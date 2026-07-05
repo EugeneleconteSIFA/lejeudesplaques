@@ -17,8 +17,13 @@ frontend/.env.local
 Thumbs.db
 *.swp
 *.swo
+*.bak
 .idea/
 .vscode/
+
+# SQLite WAL
+backend/*.db-wal
+backend/*.db-shm
 
 # Logs
 *.log
