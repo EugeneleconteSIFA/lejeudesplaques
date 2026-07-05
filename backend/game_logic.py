@@ -145,17 +145,18 @@ Personnes proposées par le joueur:
 {people_list}
 
 Pour CHAQUE personne, vérifie:
-1. exists: Est-ce une personne réellement notable ? Accepte:
-   - Célébrités (acteurs, sportifs, artistes, politiques, écrivains, scientifiques, etc.)
-   - Personnages de fiction célèbres (Harry Potter, Don Draper, Sherlock Holmes...)
-   - Personnalités notables même peu connues du grand public
-   - Noms mal orthographiés ou avec fautes de frappe SI l'intention est claire (ex: "Pierre Deproge" = Pierre Desproges ✓, "Nikola Karabatic" sans accent = OK ✓)
-   Refuse UNIQUEMENT: inventions claires, jeux de mots ("lucky looser"), combinaisons aléatoires.
+1. exists: Est-ce une personne réellement notable ? BIAIS FORT VERS L'ACCEPTATION. Accepte:
+   - Célébrités mainstream (acteurs, sportifs, artistes, politiques, écrivains, scientifiques…)
+   - Personnalités "de second rang" ou "de niche" mais bien réelles (frères/sœurs de célèbres, sportifs moins médiatisés, chefs d'entreprise, journalistes, YouTubeurs, personnages historiques modestes, personnalités locales/régionales, entrepreneurs, fondateurs de marques…)
+   - Personnages de fiction célèbres (Harry Potter, Don Draper, Sherlock Holmes…)
+   - Fautes de frappe/orthographe si l'intention est claire (ex: "Pierre Deproge" = Desproges ✓, "Nikola Karabatic" sans accent ✓, "Élie Semoune" = Semoun ✓)
+   - Fondateurs éponymes de marques (ex: Armand Thiery, Louis Vuitton, Yves Rocher…)
+   Refuse UNIQUEMENT si tu es CERTAIN que : c'est une invention pure, un jeu de mots, ou deux mots sans lien avec une vraie personne.
 2. matches_theme: Si un thème est imposé, la personne correspond-elle ? Sinon met true.
 
-Dans le doute, accepte plutôt que refuser (esprit fair-play du jeu en voiture).
+⚠️ RÈGLE D'OR : dans le moindre doute, exists=true. Ce jeu se joue en voiture entre potes/famille — mieux vaut accepter un moins connu que froisser un joueur qui a raison. Si tu hésites même 5%, accepte.
 
-Ajoute AUSSI un champ "comment" (5-15 mots) : une petite phrase amicale ou un fun fact si la réponse est bonne. Vide si refusée.
+Ajoute AUSSI un champ "comment" (5-15 mots) : un fun fact épique ou une petite phrase héroïque si la réponse est bonne. Vide si refusée.
 
 Réponds UNIQUEMENT en JSON strict, sans backticks:
 {{"valid": true|false, "people": [{{"name": "...", "exists": true|false, "matches_theme": true|false, "description": "..."}}], "reason": "...", "comment": "..."}}

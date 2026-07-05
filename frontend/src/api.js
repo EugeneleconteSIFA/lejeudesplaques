@@ -76,6 +76,8 @@ export const rooms = {
     apiCall(`/rooms/${code}/resolve-vote`, { method: "POST", body: "{}" }),
   pass: (code, playerId) =>
     apiCall(`/rooms/${code}/pass`, { method: "POST", body: JSON.stringify({ playerId }) }),
+  contest: (code, playerId) =>
+    apiCall(`/rooms/${code}/contest`, { method: "POST", body: JSON.stringify({ playerId }) }),
 };
 
 // ==========================================================

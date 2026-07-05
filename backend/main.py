@@ -410,6 +410,44 @@ async def cast_vote(code: str, req: VoteRequest):
             _resolve_vote(room)
     return room
 
+class ContestRequest(BaseModel):
+    playerId: str
+
+@app.post("/api/rooms/{code}/contest")
+async def contest_round(code: str, req: ContestRequest):
+    """Un joueur conteste la victoire déjà validée. Ouvre un vote."""
+    async with rooms_lock:
+        room = rooms.get(code.upper())
+        if not room:
+            raise HTTPException(404, "Salon introuvable")
+        if room["status"] != "validated":
+            raise HTTPException(400, "Rien à contester")
+        if req.playerId not in room["players"]:
+            raise HTTPException(403, "Joueur inconnu")
+        winner_id = room.get("winner")
+        if req.playerId == winner_id:
+            raise HTTPException(400, "Tu ne peux pas contester ta propre victoire")
+        last_log = room["log"][0] if room.get("log") else {}
+        winner_name = room["players"].get(winner_id, {}).get("name", "?")
+        contester_name = room["players"][req.playerId]["name"]
+        room["status"] = "voting"
+        room["vote"] = {
+            "proposer": winner_id,
+            "proposerName": winner_name,
+            "plate": last_log.get("plate", room["plate"]),
+            "answer": last_log.get("answer", ""),
+            "reason": f"Contesté par {contester_name}",
+            "startedAt": time.time() * 1000,
+            "votes": {req.playerId: False},  # contester = vote NON d'office
+            "resultData": {"points": last_log.get("points", 0), "mode": last_log.get("mode", "normal")},
+            "contest": True,
+        }
+        # Résolution auto si tous ont voté (cas 2 joueurs : le seul non-gagnant a voté)
+        eligible = len(room["players"]) - 1
+        if len(room["vote"]["votes"]) >= eligible:
+            _resolve_vote(room)
+    return room
+
 class PassRequest(BaseModel):
     playerId: str
 
@@ -453,6 +491,31 @@ def _resolve_vote(room: dict):
     votes = list(vote["votes"].values())
     yes = sum(1 for v in votes if v)
     no = sum(1 for v in votes if not v)
+
+    if vote.get("contest"):
+        # Contestation d'un round déjà validé. yes = "on garde", no = "on annule".
+        # Égalité → présomption d'innocence, on garde.
+        keep = yes >= no
+        proposer = vote["proposer"]
+        pts = vote["resultData"]["points"]
+        if keep:
+            room["status"] = "validated"
+        else:
+            # Retirer points au gagnant, retirer la dernière ligne d'historique
+            if proposer in room["players"]:
+                room["players"][proposer]["score"] = max(0, room["players"][proposer]["score"] - pts)
+            if room.get("log"):
+                room["log"] = room["log"][1:]
+            room["status"] = "skipped"
+            room["winner"] = None
+            room["log"] = [{
+                "round": room["roundNumber"], "plate": vote["plate"], "winner": "—",
+                "answer": f"« {vote['answer']} » invalidé", "points": 0, "mode": "contested_out",
+            }] + room.get("log", [])[:9]
+        room["vote"] = None
+        return
+
+    # Flow original : vote après refus par Claude
     validated = yes > no
     if validated:
         proposer = vote["proposer"]

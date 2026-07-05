@@ -146,7 +146,7 @@ const validateAnswer = (answer, plate) => {
   const chainAllowed = L2 === L3;
 
   if (names.length === 0) {
-    return { valid: false, reason: "Aucun nom détecté. Tape genre 'Daniel Auteuil et Paul Young'." };
+    return { valid: false, reason: "Aucun nom ne parvient à mes oreilles. Ex : 'Daniel Auteuil et Paul Young'." };
   }
 
   // Mode 2 célébrités (direct)
@@ -183,7 +183,7 @@ const validateAnswer = (answer, plate) => {
     };
   }
 
-  return { valid: false, reason: "Réponse non comprise." };
+  return { valid: false, reason: "Réponse indéchiffrable. Reformule, aventurier." };
 };
 
 const computePoints = (result, themeRespected, streak = 0) => {
@@ -423,11 +423,74 @@ const Plate = ({ plate, size = "lg" }) => {
 };
 
 // ============================================================
+// MODALE — MICHEL CHASLES (version épique)
+// ============================================================
+
+const ChaslesModal = ({ onClose }) => (
+  <div
+    onClick={onClose}
+    className="fixed inset-0 bg-stone-900/70 z-50 flex items-center justify-center p-4"
+  >
+    <div
+      onClick={e => e.stopPropagation()}
+      className="bg-gradient-cream max-w-md w-full rounded-3xl p-6 shadow-2xl border-4 border-stone-900 max-h-[90vh] overflow-y-auto"
+    >
+      <div className="flex justify-between items-start mb-4">
+        <div className="text-xs tracking-[0.3em] text-stone-700">📜 LÉGENDE</div>
+        <button onClick={onClose} className="text-stone-700 hover:text-stone-900 text-xl leading-none">✕</button>
+      </div>
+
+      <div className="flex flex-col items-center gap-3 mb-4">
+        <img
+          src={CHASLES_PORTRAIT}
+          alt="Michel Chasles"
+          className="w-32 h-32 rounded-full object-cover border-4 border-stone-900 shadow-lg"
+        />
+        <h2 className="font-display text-4xl text-stone-900 text-center leading-none">
+          MICHEL<br/>CHASLES
+        </h2>
+        <div className="text-xs tracking-widest text-stone-600">1793 — 1880</div>
+      </div>
+
+      <div className="space-y-3 text-sm text-stone-800 leading-relaxed">
+        <p>
+          <strong>Épernon, an de grâce 1793.</strong> Dans une France encore secouée par la Révolution naît un enfant qui, un jour, plierait la géométrie à sa volonté.
+        </p>
+        <p>
+          Michel Chasles gravit les marches de Polytechnique, croise Poncelet, dépasse ses maîtres. Là où d'autres calculent, lui <em>voit</em>. Il refonde la géométrie projective, ressuscite les Grecs, et grave son nom sur une équation d'une simplicité désarmante :
+        </p>
+        <div className="bg-white/80 rounded-2xl p-4 my-3 text-center border-2 border-stone-900">
+          <div className="font-mono text-2xl font-bold text-stone-900">AB + BC = AC</div>
+          <div className="text-xs text-stone-600 mt-2 tracking-wider">LA RELATION DE CHASLES</div>
+        </div>
+        <p>
+          Trois points. Deux segments. Une addition qui se souvient du sens. Cette humble formule est encore, aujourd'hui, la première brique que l'on pose dans l'esprit de tout élève de seconde qui affronte les vecteurs.
+        </p>
+        <p>
+          Dans <em>Le jeu des plaques</em>, quand les initiales du milieu s'accordent, Chasles réapparaît. <strong>EW + WS = ES</strong>. Une seule célébrité, une seule âme, pour relier deux paires : c'est sa magie, sa signature, son clin d'œil à travers les siècles.
+        </p>
+        <p className="text-center italic text-stone-700 pt-2">
+          Chaque fois que tu enchaînes ⛓️, tu réveilles un mathématicien.
+        </p>
+      </div>
+
+      <button
+        onClick={onClose}
+        className="w-full mt-5 bg-stone-900 text-white p-3 rounded-2xl font-medium hover:bg-stone-800"
+      >
+        Refermer les annales
+      </button>
+    </div>
+  </div>
+);
+
+// ============================================================
 // ÉCRAN D'ACCUEIL
 // ============================================================
 
 const Home = ({ onSelectMode }) => {
   const [examplePlate, setExamplePlate] = useState("DA-149-PY");
+  const [showChasles, setShowChasles] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => setExamplePlate(randomPlate()), 3000);
@@ -436,8 +499,15 @@ const Home = ({ onSelectMode }) => {
 
   return (
     <div className="min-h-screen bg-gradient-home flex flex-col items-center justify-start p-4 sm:p-8">
+      {showChasles && <ChaslesModal onClose={() => setShowChasles(false)} />}
       <div className="w-full max-w-md flex flex-col items-center gap-6">
-        <div className="pt-8 pb-2 text-center">
+        <button
+          onClick={() => setShowChasles(true)}
+          className="self-center text-xs text-stone-700 hover:text-stone-900 underline decoration-dotted underline-offset-4 tracking-wider mt-2"
+        >
+          📜 En savoir plus sur Michel Chasles
+        </button>
+        <div className="pt-4 pb-2 text-center">
           <div className="text-xs tracking-[0.3em] text-stone-700 mb-2 font-medium">INITIALES</div>
           <h1 className="font-display text-5xl sm:text-6xl text-stone-900 leading-none tracking-tight">
             LE JEU<br/>DES PLAQUES
@@ -465,7 +535,7 @@ const Home = ({ onSelectMode }) => {
           >
             <div className="text-left">
               <div className="font-display text-2xl tracking-wide">SOLO · ZEN</div>
-              <div className="text-xs text-stone-300 mt-0.5">Sans timer, à ton rythme</div>
+              <div className="text-xs text-stone-300 mt-0.5">La route, ton esprit, l'éternité</div>
             </div>
             <span className="text-2xl">🌿</span>
           </button>
@@ -476,7 +546,7 @@ const Home = ({ onSelectMode }) => {
           >
             <div className="text-left">
               <div className="font-display text-2xl tracking-wide">SOLO · CHRONO</div>
-              <div className="text-xs text-red-100 mt-0.5">90 secondes pour exploser le score</div>
+              <div className="text-xs text-red-100 mt-0.5">90 secondes pour marquer l'Histoire</div>
             </div>
             <span className="text-2xl">⏱️</span>
           </button>
@@ -487,7 +557,7 @@ const Home = ({ onSelectMode }) => {
           >
             <div className="text-left">
               <div className="font-display text-2xl tracking-wide">MULTI · SALON</div>
-              <div className="text-xs text-blue-100 mt-0.5">Chacun son tel, premier qui répond gagne</div>
+              <div className="text-xs text-blue-100 mt-0.5">Un salon, plusieurs guerriers, un vainqueur</div>
             </div>
             <span className="text-2xl">👥</span>
           </button>
@@ -498,18 +568,18 @@ const Home = ({ onSelectMode }) => {
           >
             <div className="text-left">
               <div className="font-display text-2xl tracking-wide">DÉFI · PARTAGÉ</div>
-              <div className="text-xs text-purple-100 mt-0.5">10 mêmes plaques, compare avec tes potes</div>
+              <div className="text-xs text-purple-100 mt-0.5">10 épreuves. Qui régnera sur le tableau ?</div>
             </div>
             <span className="text-2xl">🏁</span>
           </button>
         </div>
 
         <details className="text-xs text-stone-600 mt-6 max-w-xs">
-          <summary className="cursor-pointer hover:text-stone-900 transition-colors">Comment ça marche ?</summary>
+          <summary className="cursor-pointer hover:text-stone-900 transition-colors">Le code des Anciens</summary>
           <div className="mt-2 space-y-2 leading-relaxed">
-            <p><strong>Règle classique :</strong> Pour <code className="bg-stone-200 px-1">EW-143-WS</code>, tu peux dire "Emma Watson et William Saurin".</p>
-            <p><strong>Règle Chasles :</strong> Quand la 2ème et la 3ème lettre sont les mêmes (ici W+W), tu peux dire une seule personne : "Élina Svitolina" (EW + WS = ES).</p>
-            <p><strong>Bonus :</strong> +5 pts pour une chaîne réussie, +5 si tu respectes le thème.</p>
+            <p><strong>Voie directe :</strong> Sur <code className="bg-stone-200 px-1">EW-143-WS</code>, invoque "Emma Watson et William Saurin".</p>
+            <p><strong>Voie de Chasles ⛓️ :</strong> Quand la 2ème et la 3ème lettre s'accordent (W+W), une seule âme suffit : "Élina Svitolina" (EW + WS = ES). Le mathématicien approuve.</p>
+            <p><strong>Butin :</strong> +5 pts pour la chaîne. +5 pour l'obédience au thème.</p>
           </div>
         </details>
       </div>
@@ -710,7 +780,7 @@ const SoloZen = ({ onBack }) => {
             value={answer}
             onChange={e => setAnswer(e.target.value)}
             onKeyDown={e => e.key === "Enter" && handleSubmit()}
-            placeholder="ex: Daniel Auteuil et Paul Young"
+            placeholder="ex : Daniel Auteuil et Paul Young"
             className="w-full p-4 pr-14 rounded-2xl border-2 border-stone-300 focus:border-stone-900 outline-none text-base bg-white"
           />
           <MicButton onTranscript={handleTranscript} disabled={verifying} />
@@ -719,7 +789,7 @@ const SoloZen = ({ onBack }) => {
         {verifying && (
           <div className="p-3 rounded-xl text-sm text-center font-medium bg-blue-50 text-blue-900 border-2 border-blue-300 flex items-center justify-center gap-2">
             <span className="inline-block w-3 h-3 border-2 border-blue-900 border-t-transparent rounded-full animate-spin"/>
-            Vérification de l'existence...
+            Le jury consulte les archives...
           </div>
         )}
 
@@ -760,10 +830,18 @@ const SoloZen = ({ onBack }) => {
           </div>
         )}
 
+        {/* Recherche de Claude */}
+        {askingClaude && (
+          <div className="p-3 rounded-xl bg-purple-50 border-2 border-purple-300 text-sm text-center font-medium text-purple-900 flex items-center justify-center gap-2">
+            <span className="inline-block w-3 h-3 border-2 border-purple-900 border-t-transparent rounded-full animate-spin"/>
+            Claude fouille les annales de l'Histoire...
+          </div>
+        )}
+
         {/* Indice de Claude */}
-        {claudeHint && (
+        {!askingClaude && claudeHint && (
           <div className="p-3 rounded-xl bg-purple-50 border-2 border-purple-300 text-sm space-y-1">
-            <div className="text-xs text-purple-700 tracking-widest">🐈 CLAUDE PROPOSE</div>
+            <div className="text-xs text-purple-700 tracking-widest">🐈 L'ORACLE RÉVÈLE</div>
             <div className="font-medium text-purple-950">{claudeHint.answer}</div>
             {claudeHint.explanation && (
               <div className="text-xs text-purple-800 italic">{claudeHint.explanation}</div>
@@ -777,27 +855,32 @@ const SoloZen = ({ onBack }) => {
             disabled={verifying || askingClaude}
             className="p-3 bg-purple-100 text-purple-900 rounded-2xl font-medium text-xs sm:text-sm hover:bg-purple-200 disabled:opacity-50 transition-all"
           >
-            {askingClaude ? "..." : "🐈 Langue au chat"}
+            {askingClaude ? (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-block w-3 h-3 border-2 border-purple-900 border-t-transparent rounded-full animate-spin"/>
+                Recherche...
+              </span>
+            ) : "🐈 Langue au chat"}
           </button>
           <button
             onClick={handleSkip}
             disabled={verifying}
             className="p-3 bg-stone-200 text-stone-700 rounded-2xl font-medium text-xs sm:text-sm hover:bg-stone-300 disabled:opacity-50 transition-all"
           >
-            Passer
+            Passer mon tour
           </button>
           <button
             onClick={handleSubmit}
             disabled={!answer.trim() || verifying}
             className="p-3 bg-stone-900 text-white rounded-2xl font-medium text-xs sm:text-sm hover:bg-stone-800 disabled:bg-stone-400 transition-all"
           >
-            {verifying ? "..." : "Valider"}
+            {verifying ? "..." : "En avant !"}
           </button>
         </div>
 
         {history.length > 0 && (
           <div className="mt-2">
-            <div className="text-xs text-stone-600 mb-2">RÉCENTES</div>
+            <div className="text-xs text-stone-600 mb-2">CHRONIQUES</div>
             <div className="space-y-1.5">
               {history.map((h, i) => (
                 <div key={i} className="bg-white/60 rounded-lg p-2 flex justify-between items-center text-xs">
@@ -1122,8 +1205,8 @@ const SoloChrono = ({ onBack }) => {
         )}
 
         <div className="grid grid-cols-2 gap-2">
-          <button onClick={handleSkip} className="p-4 bg-stone-200 rounded-2xl font-medium">Passer</button>
-          <button onClick={handleSubmit} disabled={!answer.trim()} className="p-4 bg-stone-900 text-white rounded-2xl font-medium disabled:bg-stone-400">Valider</button>
+          <button onClick={handleSkip} className="p-4 bg-stone-200 rounded-2xl font-medium">Passer mon tour</button>
+          <button onClick={handleSubmit} disabled={!answer.trim()} className="p-4 bg-stone-900 text-white rounded-2xl font-medium disabled:bg-stone-400">En avant !</button>
         </div>
       </div>
     </div>
@@ -1207,7 +1290,7 @@ const MultiRoom = ({ onBack }) => {
       setPhase("inroom");
       setError("");
     } catch (e) {
-      setError("Impossible de créer le salon.");
+      setError("Les portes du salon restent closes...");
     }
   };
 
@@ -1223,7 +1306,7 @@ const MultiRoom = ({ onBack }) => {
       setPhase("inroom");
       setError("");
     } catch (e) {
-      setError("Salon introuvable.");
+      setError("Ce salon s'est évaporé dans l'éther.");
     }
   };
 
@@ -1272,7 +1355,7 @@ const MultiRoom = ({ onBack }) => {
       }
       setTimeout(() => setFeedback(null), 2500);
     } catch (e) {
-      setFeedback({ valid: false, reason: e.message?.includes("409") ? "Un autre joueur répond déjà !" : "Erreur" });
+      setFeedback({ valid: false, reason: e.message?.includes("409") ? "Un rival t'a devancé !" : "Erreur" });
       setTimeout(() => setFeedback(null), 2000);
     } finally {
       setVerifying(false);
@@ -1293,6 +1376,15 @@ const MultiRoom = ({ onBack }) => {
       const updated = await roomsAPI.pass(roomCode, playerId);
       setRoom(updated);
       setAnswer("");
+    } catch (e) { console.error(e); }
+  };
+
+  const contestRound = async () => {
+    if (!room || room.status !== "validated" || room.winner === playerId) return;
+    if (!confirm("Défier ce verdict ? Le jury des autres joueurs tranchera.")) return;
+    try {
+      const updated = await roomsAPI.contest(roomCode, playerId);
+      setRoom(updated);
     } catch (e) { console.error(e); }
   };
 
@@ -1322,7 +1414,7 @@ const MultiRoom = ({ onBack }) => {
             onClick={createRoom}
             className="btn-multi text-white p-5 rounded-2xl font-display text-2xl active:scale-98 transition-all shadow-lg"
           >
-            CRÉER UN SALON
+            OUVRIR UN SALON
           </button>
 
           <div className="text-center text-stone-600 text-sm py-2">— ou —</div>
@@ -1336,7 +1428,7 @@ const MultiRoom = ({ onBack }) => {
               className="w-full p-3 rounded-xl border-2 border-stone-300 focus:border-stone-900 outline-none font-mono text-center text-2xl tracking-widest"
             />
             <button onClick={joinRoom} className="w-full bg-stone-900 text-white p-3 rounded-xl font-medium">
-              Rejoindre
+              Rejoindre la mêlée
             </button>
           </div>
 
@@ -1350,7 +1442,7 @@ const MultiRoom = ({ onBack }) => {
   if (!room) {
     return (
       <div className="min-h-screen bg-gradient-lobby p-4 flex items-center justify-center">
-        <div className="text-stone-700">Chargement du salon...</div>
+        <div className="text-stone-700">Ouverture des portes du salon...</div>
       </div>
     );
   }
@@ -1403,17 +1495,17 @@ const MultiRoom = ({ onBack }) => {
         {isWaiting && (
           <div className="flex flex-col items-center gap-4 py-6">
             <div className="text-stone-700 text-center">
-              {isHost ? "Tu es l\'hôte. Lance la première manche !" : "En attente de l\'hôte..."}
+              {isHost ? "Tu es le maître de cérémonie. Ouvre le bal !" : "Le maître de cérémonie prépare la première épreuve..."}
             </div>
             {isHost && (
               <button onClick={startRound} className="btn-chrono text-white px-10 py-4 rounded-2xl font-display text-2xl shadow-lg">
-                LANCER
+                QUE LES JEUX COMMENCENT
               </button>
             )}
           </div>
         )}
 
-        {(isPlaying || isValidated || isVoting) && (
+        {(isPlaying || isValidated || isVoting || isSkipped) && (
           <>
             <div className="flex justify-center py-4">
               <Plate plate={room.plate} size="lg" />
@@ -1474,13 +1566,13 @@ const MultiRoom = ({ onBack }) => {
                 {room.checking && room.checking.player !== playerId ? (
                   <div className="p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 text-center">
                     <div className="inline-block w-3 h-3 border-2 border-amber-700 border-t-transparent rounded-full animate-spin mr-2"/>
-                    <span className="font-medium text-amber-900">{room.checking.name} tente "{room.checking.answer}"...</span>
+                    <span className="font-medium text-amber-900">{room.checking.name} dégaine "{room.checking.answer}"...</span>
                   </div>
                 ) : hasPassed ? (
                   <div className="p-4 rounded-2xl bg-stone-100 border-2 border-stone-300 text-center">
-                    <div className="text-sm text-stone-700">Tu as dit <strong>« je ne sais pas »</strong></div>
+                    <div className="text-sm text-stone-700">Tu as <strong>rendu les armes</strong></div>
                     <div className="text-xs text-stone-600 mt-1">
-                      {passes.length} / {totalPlayers} ont passé — en attente des autres...
+                      {passes.length} / {totalPlayers} ont capitulé — on attend les derniers guerriers...
                     </div>
                   </div>
                 ) : (
@@ -1491,7 +1583,7 @@ const MultiRoom = ({ onBack }) => {
                         value={answer}
                         onChange={e => setAnswer(e.target.value)}
                         onKeyDown={e => e.key === "Enter" && submitAnswer()}
-                        placeholder="Tape avant les autres..."
+                        placeholder="Dégaine avant les autres..."
                         disabled={verifying || (room.checking && room.checking.player !== playerId)}
                         className="w-full p-4 pr-14 rounded-2xl border-2 border-stone-300 focus:border-stone-900 outline-none text-base bg-white disabled:bg-stone-100"
                       />
@@ -1501,7 +1593,7 @@ const MultiRoom = ({ onBack }) => {
                     {verifying && (
                       <div className="p-3 rounded-xl text-sm text-center font-medium bg-blue-50 text-blue-900 border-2 border-blue-300 flex items-center justify-center gap-2">
                         <span className="inline-block w-3 h-3 border-2 border-blue-900 border-t-transparent rounded-full animate-spin"/>
-                        Vérification...
+                        Le jury consulte les archives...
                       </div>
                     )}
 
@@ -1520,7 +1612,7 @@ const MultiRoom = ({ onBack }) => {
                       disabled={!answer.trim() || verifying}
                       className="w-full p-4 bg-stone-900 text-white rounded-2xl font-medium disabled:bg-stone-400"
                     >
-                      {verifying ? "Vérification..." : "Valider !"}
+                      {verifying ? "Le jury tranche..." : "En avant !"}
                     </button>
 
                     <button
@@ -1528,7 +1620,7 @@ const MultiRoom = ({ onBack }) => {
                       disabled={verifying}
                       className="w-full p-3 bg-white border-2 border-stone-300 text-stone-700 rounded-2xl font-medium text-sm hover:bg-stone-50 disabled:opacity-50"
                     >
-                      Je ne sais pas
+                      Je rends les armes
                       {passes.length > 0 && (
                         <span className="ml-2 text-xs text-stone-500">({passes.length}/{totalPlayers})</span>
                       )}
@@ -1540,22 +1632,22 @@ const MultiRoom = ({ onBack }) => {
 
             {isSkipped && (
               <div className="bg-stone-100 border-2 border-stone-300 rounded-2xl p-4 text-center">
-                <div className="text-xs text-stone-600">MANCHE PASSÉE</div>
-                <div className="font-display text-2xl text-stone-800 mt-1">Personne n'a trouvé</div>
-                <div className="text-xs text-stone-600 mt-1">Tous les joueurs ont dit « je ne sais pas »</div>
+                <div className="text-xs text-stone-600">MANCHE ENSEVELIE</div>
+                <div className="font-display text-2xl text-stone-800 mt-1">Nul n'a percé le mystère</div>
+                <div className="text-xs text-stone-600 mt-1">Toute la troupe a rendu les armes</div>
                 {isHost ? (
                   <button onClick={nextRound} className="mt-3 bg-stone-900 text-white px-6 py-2 rounded-xl">
-                    Manche suivante →
+                    Nouvelle épreuve →
                   </button>
                 ) : (
-                  <div className="mt-3 text-xs text-stone-600">En attente de l'hôte...</div>
+                  <div className="mt-3 text-xs text-stone-600">Le maître de cérémonie prépare la suite...</div>
                 )}
               </div>
             )}
 
             {isValidated && winnerPlayer && (
               <div className="bg-green-100 border-2 border-green-400 rounded-2xl p-4 text-center">
-                <div className="text-xs text-green-800">REMPORTÉ PAR</div>
+                <div className="text-xs text-green-800">VAINQUEUR DE LA MANCHE</div>
                 <div className="font-display text-2xl text-green-900 mt-1">{winnerPlayer.name}</div>
                 <div className="text-sm text-green-800 mt-1">{room.log[0]?.answer}</div>
                 <div className="text-xs text-green-700 mt-1">
@@ -1563,13 +1655,24 @@ const MultiRoom = ({ onBack }) => {
                   {room.log[0]?.mode === "chasles" && " · Chasles ⛓️"}
                   {room.log[0]?.contested && " · ⚠️ contesté"}
                 </div>
-                {isHost ? (
-                  <button onClick={nextRound} className="mt-3 bg-stone-900 text-white px-6 py-2 rounded-xl">
-                    Manche suivante →
-                  </button>
-                ) : (
-                  <div className="mt-3 text-xs text-stone-600">En attente de l\'hôte...</div>
-                )}
+                <div className="mt-3 flex flex-col gap-2 items-center">
+                  {isHost && (
+                    <button onClick={nextRound} className="bg-stone-900 text-white px-6 py-2 rounded-xl">
+                      Nouvelle épreuve →
+                    </button>
+                  )}
+                  {!isHost && (
+                    <div className="text-xs text-stone-600">Le maître de cérémonie prépare la suite...</div>
+                  )}
+                  {room.winner !== playerId && (
+                    <button
+                      onClick={contestRound}
+                      className="text-xs text-red-800 underline hover:text-red-900 mt-1"
+                    >
+                      ⚠️ Défier ce verdict
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </>
@@ -1577,7 +1680,7 @@ const MultiRoom = ({ onBack }) => {
 
         {room.log && room.log.length > 0 && (
           <div className="mt-2">
-            <div className="text-xs text-stone-600 mb-1">HISTORIQUE</div>
+            <div className="text-xs text-stone-600 mb-1">CHRONIQUES DES ANCIENS</div>
             <div className="space-y-1 max-h-32 overflow-y-auto">
               {room.log.slice(0, 5).map((entry, i) => (
                 <div key={i} className="text-xs bg-white/60 rounded p-1.5 flex justify-between">
@@ -1717,7 +1820,7 @@ const ChallengeMode = ({ onBack }) => {
     } catch (e) { console.error("challenge score", e); }
   };
 
-  const shareText = `🏁 DÉFI INITIALES #${code} — j'ai fait ${score} pts. À toi de me battre !`;
+  const shareText = `🏁 DÉFI INITIALES #${code} — j'ai marqué ${score} pts. Ose me défier.`;
 
   const copyShareText = () => {
     if (navigator.clipboard) {
@@ -1734,7 +1837,7 @@ const ChallengeMode = ({ onBack }) => {
           <div className="text-center mt-4">
             <div className="text-xs tracking-[0.3em] text-stone-600 mb-1">MODE</div>
             <h2 className="font-display text-6xl text-stone-900">DÉFI</h2>
-            <p className="text-sm text-stone-600 mt-2">10 plaques identiques pour tout le monde.<br/>Compare ton score avec tes potes.</p>
+            <p className="text-sm text-stone-600 mt-2">10 épreuves. Un même parcours pour tous.<br/>Qui inscrira son nom au sommet du tableau ?</p>
           </div>
 
           <div className="bg-white/80 p-5 rounded-2xl space-y-3 mt-4">
@@ -1751,7 +1854,7 @@ const ChallengeMode = ({ onBack }) => {
             onClick={createChallenge}
             className="btn-chrono text-white p-5 rounded-2xl font-display text-2xl active:scale-98 transition-all shadow-lg"
           >
-            🏁 CRÉER UN DÉFI
+            🏁 FORGER UN DÉFI
           </button>
 
           <div className="text-center text-stone-600 text-sm py-2">— ou —</div>
@@ -1787,18 +1890,18 @@ const ChallengeMode = ({ onBack }) => {
         <div className="w-full max-w-md mx-auto flex flex-col gap-4">
           <div className="text-center mt-6">
             <div className="text-xs tracking-[0.3em] text-stone-600">DÉFI #{code}</div>
-            <h2 className="font-display text-6xl text-stone-900 mt-1">TERMINÉ</h2>
+            <h2 className="font-display text-6xl text-stone-900 mt-1">ACHEVÉ</h2>
           </div>
 
           <div className="bg-white/80 p-6 rounded-3xl flex flex-col items-center gap-2 border-2 border-stone-900">
-            <div className="text-xs text-stone-600">TON SCORE</div>
+            <div className="text-xs text-stone-600">TA GLOIRE</div>
             <div className="font-display text-7xl text-stone-900 leading-none">{score}</div>
-            <div className="text-sm text-stone-700 mt-2">{acceptedCount}/{plates.length} plaques réussies</div>
+            <div className="text-sm text-stone-700 mt-2">{acceptedCount}/{plates.length} plaques terrassées</div>
           </div>
 
           {leaderboard.length > 1 && (
             <div className="bg-white/60 rounded-2xl p-4 space-y-2">
-              <div className="text-xs text-stone-600 tracking-widest text-center">CLASSEMENT DU DÉFI</div>
+              <div className="text-xs text-stone-600 tracking-widest text-center">LE PANTHÉON</div>
               {leaderboard.slice(0, 5).map((entry, i) => (
                 <div key={i} className={`flex justify-between items-center p-2 rounded-lg ${entry.pseudo === pseudo && entry.score === score ? "bg-stone-900 text-white" : "bg-white/80"}`}>
                   <span className="text-sm">
@@ -1812,7 +1915,7 @@ const ChallengeMode = ({ onBack }) => {
           )}
 
           <div className="bg-purple-50 border-2 border-purple-300 rounded-2xl p-4 text-center space-y-2">
-            <div className="text-xs text-purple-700 tracking-widest">PARTAGE LE DÉFI</div>
+            <div className="text-xs text-purple-700 tracking-widest">CONVOQUE LES ADVERSAIRES</div>
             <div className="font-mono text-3xl font-bold text-purple-900">#{code}</div>
             <div className="text-xs text-purple-800 italic">{shareText}</div>
             <button onClick={copyShareText} className="w-full mt-2 bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-xl text-sm font-medium">
@@ -1821,7 +1924,7 @@ const ChallengeMode = ({ onBack }) => {
           </div>
 
           <details className="bg-white/60 rounded-2xl p-3 text-xs">
-            <summary className="cursor-pointer text-stone-700">Voir les 10 plaques</summary>
+            <summary className="cursor-pointer text-stone-700">Rouvrir les 10 épreuves</summary>
             <div className="mt-2 space-y-1">
               {results.map((r, i) => (
                 <div key={i} className="flex justify-between p-1.5">
