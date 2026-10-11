@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { playSound, setMusic, setSoundOn, useSoundOn } from './sound.js';
 import { CHASLES_PORTRAIT } from './chasles.js';
 import {
   verifyCelebrities as apiVerify,
@@ -218,6 +219,7 @@ const buzz = (pattern) => {
 const useFeedbackHaptics = (feedback) => {
   useEffect(() => {
     if (feedback) buzz(feedback.valid ? 25 : [40, 60, 40]);
+    if (feedback) playSound(feedback.valid ? "correct" : "wrong");
   }, [feedback]);
 };
 
@@ -889,20 +891,26 @@ const Home = ({ onSelectMode }) => {
   const [showRules, setShowRules] = useState(false);
   const [showInstall, setShowInstall] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
+  const soundOn = useSoundOn();
 
   useEffect(() => {
     const interval = setInterval(() => setExamplePlate(randomPlate()), 3000);
     return () => clearInterval(interval);
   }, []);
 
+  const [L1, L2, L3, L4] = getPlateLetters(examplePlate);
+  const linkCls = "text-xs text-stone-700 hover:text-stone-900 underline decoration-dotted underline-offset-4 tracking-wider";
+
   return (
-    <div className="min-h-screen bg-gradient-home flex flex-col items-center justify-start p-4 sm:p-8">
+    <div className="min-h-screen bg-gradient-home flex flex-col items-center p-4 sm:p-8 lg:justify-center lg:py-6">
       {showChasles && <ChaslesModal onClose={() => setShowChasles(false)} />}
       {showRules && <RulesModal onClose={() => setShowRules(false)} />}
       {showInstall && <InstallModal onClose={() => setShowInstall(false)} />}
       {showAccount && <AccountModal onClose={() => setShowAccount(false)} />}
-      <div className="w-full max-w-md flex flex-col items-center gap-6">
-        <div className="w-full flex justify-between items-center -mb-4">
+
+      <div className="w-full max-w-md lg:max-w-6xl">
+        {/* Barre du haut */}
+        <div className="w-full flex justify-between items-center gap-2">
           <a
             href={PORTAL_URL}
             aria-label="Retour au portail Full Gaz"
@@ -910,81 +918,91 @@ const Home = ({ onSelectMode }) => {
           >
             ← Full Gaz
           </a>
-          <button
-            onClick={() => setShowAccount(true)}
-            className="min-h-[44px] inline-flex items-center px-4 rounded-full text-sm bg-white/70 text-stone-900 border-2 border-stone-900 hover:bg-white tracking-wider"
-          >
-            👤 Mon compte
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSoundOn(!soundOn)}
+              aria-pressed={soundOn}
+              aria-label={soundOn ? "Couper le son" : "Activer le son"}
+              className="sound-toggle min-h-[44px] inline-flex items-center px-3 rounded-full text-sm bg-white/70 text-stone-900 border-2 border-stone-900 hover:bg-white tracking-wider"
+            >
+              {soundOn ? "🔊" : "🔇"}
+            </button>
+            <button
+              onClick={() => setShowAccount(true)}
+              className="min-h-[44px] inline-flex items-center px-4 rounded-full text-sm bg-white/70 text-stone-900 border-2 border-stone-900 hover:bg-white tracking-wider"
+            >
+              👤 Mon compte
+            </button>
+          </div>
         </div>
-        <button
-          onClick={() => setShowChasles(true)}
-          className="self-center text-xs text-stone-700 hover:text-stone-900 underline decoration-dotted underline-offset-4 tracking-wider mt-2"
-        >
-          📜 En savoir plus sur Michel Chasles
-        </button>
-        {/* Titre façon panneau d'entrée d'autoroute */}
-        <div className="w-full pt-2 pb-1 flex flex-col items-center">
-          <div className="road-sign bg-multi-solid text-multi px-6 py-4 w-full max-w-xs text-center">
-            <div className="text-white">
-              <div className="font-display text-[13px] tracking-[0.35em] opacity-90">A7 · AUTOROUTE DU SOLEIL</div>
-              <h1 className="font-display text-5xl sm:text-6xl leading-[0.9] mt-1">
-                LE JEU<br/>DES PLAQUES
-              </h1>
+
+        {/* Mobile : une colonne · Ordinateur : deux colonnes sur un seul écran */}
+        <div className="mt-4 flex flex-col items-center gap-6 lg:grid lg:grid-cols-[1fr_1fr] lg:gap-16 lg:items-center lg:mt-2">
+
+          {/* Colonne gauche : identité + plaque d'exemple */}
+          <div className="w-full flex flex-col items-center gap-5 lg:gap-6">
+            <div className="w-full flex flex-col items-center">
+              <div className="road-sign bg-multi-solid text-multi px-6 py-4 w-full max-w-xs lg:max-w-sm text-center">
+                <div className="text-white">
+                  <div className="font-display text-[13px] tracking-[0.35em] opacity-90">A7 · AUTOROUTE DU SOLEIL</div>
+                  <h1 className="font-display text-5xl sm:text-6xl lg:text-7xl leading-[0.9] mt-1">
+                    LE JEU<br/>DES PLAQUES
+                  </h1>
+                </div>
+              </div>
+              <div className="sunset-stripes w-40 mt-4" aria-hidden="true" />
+              <div className="font-display text-xl text-stone-800 tracking-[0.2em] mt-2">
+                D'IMMATRICULATION
+              </div>
+            </div>
+
+            <div className="transition-all duration-500 hover:scale-105 hover:-rotate-1">
+              <Plate plate={examplePlate} size="lg" />
+            </div>
+
+            <p className="text-center text-stone-700 text-sm leading-relaxed max-w-xs lg:max-w-sm min-h-[3.5rem]">
+              Sur la plaque <span className="font-mono font-bold text-stone-900">{examplePlate}</span>, trouve deux célébrités : une pour <span className="font-mono font-bold text-stone-900">{L1}{L2}</span>, une pour <span className="font-mono font-bold text-stone-900">{L3}{L4}</span>.
+              {canChain(examplePlate) && (
+                <>
+                  <br/>Ou par Chasles, une seule pour <span className="font-mono font-bold text-stone-900">{L1}{L4}</span> ⛓️
+                </>
+              )}
+            </p>
+
+            <div className="hidden lg:flex flex-wrap justify-center gap-x-5 gap-y-2">
+              <button onClick={() => setShowRules(true)} className={linkCls}>Comment ça marche ?</button>
+              <button onClick={() => setShowChasles(true)} className={linkCls}>📜 Michel Chasles</button>
+              <button onClick={() => setShowInstall(true)} className={linkCls}>Installer sur mon téléphone</button>
             </div>
           </div>
-          <div className="sunset-stripes w-40 mt-4" aria-hidden="true" />
-          <div className="font-display text-xl text-stone-800 tracking-[0.2em] mt-2">
-            D'IMMATRICULATION
-          </div>
+
+          {/* Colonne droite : modes de jeu = panneaux de sortie */}
+          <nav aria-label="Modes de jeu" className="w-full flex flex-col gap-5 lg:gap-4 mt-2 lg:mt-0">
+            {HOME_MODES.map((m, i) => (
+              <button
+                key={m.id}
+                onClick={() => onSelectMode(m.id)}
+                className={`road-sign ${m.bg} ${m.ring} text-left p-5 pt-6 lg:py-4 lg:pt-5 flex items-center justify-between gap-3 transition-transform lg:hover:-translate-y-0.5`}
+              >
+                <span className="road-sign-tab">SORTIE {i + 1}</span>
+                <div className="text-white">
+                  <div className="font-display text-[28px] lg:text-[26px] leading-none tracking-wide">{m.title}</div>
+                  <div className="text-[13px] mt-1 opacity-90">{m.subtitle}</div>
+                </div>
+                <span className="text-white shrink-0 flex items-center gap-2">
+                  <span className="text-2xl">{m.emoji}</span>
+                  <span className="font-display text-3xl leading-none">↗</span>
+                </span>
+              </button>
+            ))}
+          </nav>
         </div>
 
-        <div className="my-2 transition-all duration-500 hover:scale-105 hover:-rotate-1">
-          <Plate plate={examplePlate} size="lg" />
-        </div>
-
-        <p className="text-center text-stone-700 text-sm leading-relaxed max-w-xs">
-          Sur la plaque <span className="font-mono font-bold text-stone-900">{examplePlate}</span>, trouve deux célébrités : une pour <span className="font-mono font-bold text-stone-900">{getPlateLetters(examplePlate)[0]}{getPlateLetters(examplePlate)[1]}</span>, une pour <span className="font-mono font-bold text-stone-900">{getPlateLetters(examplePlate)[2]}{getPlateLetters(examplePlate)[3]}</span>.
-          {canChain(examplePlate) && (
-            <>
-              <br/>Ou par Chasles, une seule pour <span className="font-mono font-bold text-stone-900">{getPlateLetters(examplePlate)[0]}{getPlateLetters(examplePlate)[3]}</span> ⛓️
-            </>
-          )}
-        </p>
-
-        {/* Modes de jeu = panneaux de sortie */}
-        <div className="w-full flex flex-col gap-5 mt-4">
-          {HOME_MODES.map((m, i) => (
-            <button
-              key={m.id}
-              onClick={() => onSelectMode(m.id)}
-              className={`road-sign ${m.bg} ${m.ring} text-left p-5 pt-6 flex items-center justify-between gap-3 transition-transform`}
-            >
-              <span className="road-sign-tab">SORTIE {i + 1}</span>
-              <div className="text-white">
-                <div className="font-display text-[28px] leading-none tracking-wide">{m.title}</div>
-                <div className="text-[13px] mt-1 opacity-90">{m.subtitle}</div>
-              </div>
-              <span className="text-white shrink-0 flex items-center gap-2">
-                <span className="text-2xl">{m.emoji}</span>
-                <span className="font-display text-3xl leading-none">↗</span>
-              </span>
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-col items-center gap-2 mt-6 mb-4">
-          <button
-            onClick={() => setShowRules(true)}
-            className="text-xs text-stone-700 hover:text-stone-900 underline decoration-dotted underline-offset-4 tracking-wider"
-          >
-            Comment ça marche ?
-          </button>
-          <button
-            onClick={() => setShowInstall(true)}
-            className="text-xs text-stone-700 hover:text-stone-900 underline decoration-dotted underline-offset-4 tracking-wider"
-          >
-            Comment ajouter sur mon écran de téléphone ?
-          </button>
+        {/* Liens d'aide (mobile) */}
+        <div className="flex flex-col items-center gap-3 mt-8 mb-4 lg:hidden">
+          <button onClick={() => setShowRules(true)} className={linkCls}>Comment ça marche ?</button>
+          <button onClick={() => setShowChasles(true)} className={linkCls}>📜 En savoir plus sur Michel Chasles</button>
+          <button onClick={() => setShowInstall(true)} className={linkCls}>Comment ajouter sur mon écran de téléphone ?</button>
         </div>
       </div>
     </div>
@@ -1096,6 +1114,7 @@ const SoloZen = ({ onBack }) => {
   };
 
   const handleSkip = () => {
+    playSound("skip", 0.7);
     setStreak(0);
     setPlate(randomPlate(difficulty));
     setAnswer("");
@@ -1359,12 +1378,15 @@ const SoloChrono = ({ onBack }) => {
     if (phase !== "playing") return;
     if (timeLeft <= 0) {
       setPhase("done");
+      playSound("time_up");
       if (score > bestScore) {
+        setTimeout(() => playSound("record"), 700);
         setBestScore(score);
         try { localStorage.setItem("chrono:best", String(score)); } catch (e) {}
       }
       return;
     }
+    if (timeLeft <= 5) playSound("tick", 0.7); // dernières secondes
     const t = setTimeout(() => setTimeLeft(s => s - 1), 1000);
     return () => clearTimeout(t);
   }, [timeLeft, phase, score, bestScore]);
@@ -1462,6 +1484,7 @@ const SoloChrono = ({ onBack }) => {
   };
 
   const handleSkip = () => {
+    playSound("skip", 0.7);
     setSkipped(s => s + 1);
     setStreak(0);
     setChronoHistory(h => [...h, { plate, answer: "—", points: 0, mode: null, status: "skipped" }]);
@@ -2428,6 +2451,7 @@ const ChallengeMode = ({ onBack }) => {
   };
 
   const handleSkip = () => {
+    playSound("skip", 0.7);
     const currentPlate = plates[currentIdx];
     const newResults = [...results, { plate: currentPlate, answer: "—", points: 0, accepted: false, skipped: true }];
     setResults(newResults);
@@ -2444,6 +2468,7 @@ const ChallengeMode = ({ onBack }) => {
   // Valeurs finales passées explicitement : le state n'est pas encore à jour au moment de l'appel
   const finishChallenge = async (finalScore, finalResults) => {
     setPhase("done");
+    playSound("time_up");
     try {
       await challengesAPI.submitScore(code, pseudo, finalScore, finalResults.filter(r => r.accepted).length);
       const board = await challengesAPI.getLeaderboard(code);
@@ -2972,6 +2997,8 @@ const SurLeVif = ({ onBack }) => {
 
 export default function App() {
   const [mode, setMode] = useState(null);
+  // Musique très discrète, seulement en mode Zen (partie sans chrono).
+  useEffect(() => { setMusic(mode === "zen" ? "music_calm" : null); }, [mode]);
 
   return (
     <>
