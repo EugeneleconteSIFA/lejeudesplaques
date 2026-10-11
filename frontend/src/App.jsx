@@ -441,6 +441,23 @@ const ModalBackdrop = ({ onClose, children }) => {
 };
 
 // ============================================================
+// COMPTEUR KILOMÉTRIQUE (affichage des scores)
+// ============================================================
+
+const Odometer = ({ value, digits = 4, className = "text-lg" }) => {
+  const str = String(Math.max(0, value)).padStart(digits, "0");
+  return (
+    <span key={value} className={`anim-bump ${className}`} aria-label={`${value} points`}>
+      <span className="odometer">
+        {str.split("").map((d, i) => (
+          <span key={i} className={`odometer-digit ${i === str.length - 1 ? "is-last" : ""}`}>{d}</span>
+        ))}
+      </span>
+    </span>
+  );
+};
+
+// ============================================================
 // COMPOSANT PLAQUE
 // ============================================================
 
@@ -857,6 +874,15 @@ const AccountModal = ({ onClose }) => {
   );
 };
 
+// Panneaux de sortie de l'accueil : `ring` = couleur du liseré intérieur (currentColor)
+const HOME_MODES = [
+  { id: "zen", title: "SOLO · ZEN", subtitle: "La route, ton esprit, l'éternité", emoji: "🌿", bg: "bg-stone-900", ring: "text-stone-900" },
+  { id: "chrono", title: "SOLO · CHRONO", subtitle: "90 secondes pour marquer l'Histoire", emoji: "⏱️", bg: "bg-chrono-solid", ring: "text-chrono" },
+  { id: "multi", title: "MULTI · SALON", subtitle: "Un salon, plusieurs guerriers, un vainqueur", emoji: "👥", bg: "bg-multi-solid", ring: "text-multi" },
+  { id: "defi", title: "DÉFI · PARTAGÉ", subtitle: "10 épreuves. Qui régnera sur le tableau ?", emoji: "🏁", bg: "bg-purple-700", ring: "text-purple-700" },
+  { id: "vif", title: "SUR LE VIF", subtitle: "Tu vois une plaque ? Rentre-la, craque-la", emoji: "👀", bg: "bg-emerald-700", ring: "text-emerald-700" },
+];
+
 const Home = ({ onSelectMode }) => {
   const [examplePlate, setExamplePlate] = useState("DA-149-PY");
   const [showChasles, setShowChasles] = useState(false);
@@ -897,85 +923,55 @@ const Home = ({ onSelectMode }) => {
         >
           📜 En savoir plus sur Michel Chasles
         </button>
-        <div className="pt-4 pb-2 text-center">
-          <h1 className="font-display text-5xl sm:text-6xl text-stone-900 leading-none tracking-tight">
-            LE JEU<br/>DES PLAQUES
-          </h1>
-          <div className="font-display text-2xl sm:text-3xl text-stone-800 tracking-tight mt-2">
-            d'immatriculation
+        {/* Titre façon panneau d'entrée d'autoroute */}
+        <div className="w-full pt-2 pb-1 flex flex-col items-center">
+          <div className="road-sign bg-multi-solid text-multi px-6 py-4 w-full max-w-xs text-center">
+            <div className="text-white">
+              <div className="font-display text-[13px] tracking-[0.35em] opacity-90">A7 · AUTOROUTE DU SOLEIL</div>
+              <h1 className="font-display text-5xl sm:text-6xl leading-[0.9] mt-1">
+                LE JEU<br/>DES PLAQUES
+              </h1>
+            </div>
+          </div>
+          <div className="sunset-stripes w-40 mt-4" aria-hidden="true" />
+          <div className="font-display text-xl text-stone-800 tracking-[0.2em] mt-2">
+            D'IMMATRICULATION
           </div>
         </div>
 
-        <div className="my-4 transition-all duration-500 hover:scale-105">
+        <div className="my-2 transition-all duration-500 hover:scale-105 hover:-rotate-1">
           <Plate plate={examplePlate} size="lg" />
         </div>
 
         <p className="text-center text-stone-700 text-sm leading-relaxed max-w-xs">
-          Sur la plaque <span className="font-mono font-bold">{examplePlate}</span>, trouve deux célébrités : une pour <span className="font-mono font-bold">{getPlateLetters(examplePlate)[0]}{getPlateLetters(examplePlate)[1]}</span>, une pour <span className="font-mono font-bold">{getPlateLetters(examplePlate)[2]}{getPlateLetters(examplePlate)[3]}</span>.
+          Sur la plaque <span className="font-mono font-bold text-stone-900">{examplePlate}</span>, trouve deux célébrités : une pour <span className="font-mono font-bold text-stone-900">{getPlateLetters(examplePlate)[0]}{getPlateLetters(examplePlate)[1]}</span>, une pour <span className="font-mono font-bold text-stone-900">{getPlateLetters(examplePlate)[2]}{getPlateLetters(examplePlate)[3]}</span>.
           {canChain(examplePlate) && (
             <>
-              <br/>Ou par Chasles, une seule pour <span className="font-mono font-bold">{getPlateLetters(examplePlate)[0]}{getPlateLetters(examplePlate)[3]}</span> ⛓️
+              <br/>Ou par Chasles, une seule pour <span className="font-mono font-bold text-stone-900">{getPlateLetters(examplePlate)[0]}{getPlateLetters(examplePlate)[3]}</span> ⛓️
             </>
           )}
         </p>
 
-        <div className="w-full flex flex-col gap-3 mt-4">
-          <button
-            onClick={() => onSelectMode("zen")}
-            className="bg-stone-900 text-white p-5 rounded-2xl flex items-center justify-between hover:bg-stone-800 active:scale-98 transition-all shadow-lg"
-          >
-            <div className="text-left">
-              <div className="font-display text-2xl tracking-wide">SOLO · ZEN</div>
-              <div className="text-xs text-stone-300 mt-0.5">La route, ton esprit, l'éternité</div>
-            </div>
-            <span className="text-2xl">🌿</span>
-          </button>
-
-          <button
-            onClick={() => onSelectMode("chrono")}
-            className="btn-chrono text-white p-5 rounded-2xl flex items-center justify-between active:scale-98 transition-all shadow-lg"
-          >
-            <div className="text-left">
-              <div className="font-display text-2xl tracking-wide">SOLO · CHRONO</div>
-              <div className="text-xs text-red-100 mt-0.5">90 secondes pour marquer l'Histoire</div>
-            </div>
-            <span className="text-2xl">⏱️</span>
-          </button>
-
-          <button
-            onClick={() => onSelectMode("multi")}
-            className="btn-multi text-white p-5 rounded-2xl flex items-center justify-between active:scale-98 transition-all shadow-lg"
-          >
-            <div className="text-left">
-              <div className="font-display text-2xl tracking-wide">MULTI · SALON</div>
-              <div className="text-xs text-blue-100 mt-0.5">Un salon, plusieurs guerriers, un vainqueur</div>
-            </div>
-            <span className="text-2xl">👥</span>
-          </button>
-
-          <button
-            onClick={() => onSelectMode("defi")}
-            className="bg-purple-700 text-white p-5 rounded-2xl flex items-center justify-between hover:bg-purple-800 active:scale-98 transition-all shadow-lg"
-          >
-            <div className="text-left">
-              <div className="font-display text-2xl tracking-wide">DÉFI · PARTAGÉ</div>
-              <div className="text-xs text-purple-100 mt-0.5">10 épreuves. Qui régnera sur le tableau ?</div>
-            </div>
-            <span className="text-2xl">🏁</span>
-          </button>
-
-          <button
-            onClick={() => onSelectMode("vif")}
-            className="bg-emerald-700 text-white p-5 rounded-2xl flex items-center justify-between hover:bg-emerald-800 active:scale-98 transition-all shadow-lg"
-          >
-            <div className="text-left">
-              <div className="font-display text-2xl tracking-wide">SUR LE VIF</div>
-              <div className="text-xs text-emerald-100 mt-0.5">Tu vois une plaque ? Rentre-la, craque-la</div>
-            </div>
-            <span className="text-2xl">👀</span>
-          </button>
+        {/* Modes de jeu = panneaux de sortie */}
+        <div className="w-full flex flex-col gap-5 mt-4">
+          {HOME_MODES.map((m, i) => (
+            <button
+              key={m.id}
+              onClick={() => onSelectMode(m.id)}
+              className={`road-sign ${m.bg} ${m.ring} text-left p-5 pt-6 flex items-center justify-between gap-3 transition-transform`}
+            >
+              <span className="road-sign-tab">SORTIE {i + 1}</span>
+              <div className="text-white">
+                <div className="font-display text-[28px] leading-none tracking-wide">{m.title}</div>
+                <div className="text-[13px] mt-1 opacity-90">{m.subtitle}</div>
+              </div>
+              <span className="text-white shrink-0 flex items-center gap-2">
+                <span className="text-2xl">{m.emoji}</span>
+                <span className="font-display text-3xl leading-none">↗</span>
+              </span>
+            </button>
+          ))}
         </div>
-
         <div className="flex flex-col items-center gap-2 mt-6 mb-4">
           <button
             onClick={() => setShowRules(true)}
@@ -1123,11 +1119,11 @@ const SoloZen = ({ onBack }) => {
         <header className="flex items-center justify-between">
           <button onClick={onBack} className="text-stone-700 hover:text-stone-900 text-sm">← Menu</button>
           <div className="text-center">
-            <div className="text-xs text-stone-600">SCORE</div>
-            <div key={score} className="font-display text-3xl text-stone-900 leading-none anim-bump">{score}</div>
+            <div className="font-display text-xs tracking-[0.25em] text-stone-600">SCORE</div>
+            <div className="mt-0.5"><Odometer value={score} className="text-xl" /></div>
           </div>
           <div className="text-right">
-            <div className="text-xs text-stone-600">SÉRIE</div>
+            <div className="font-display text-xs tracking-[0.25em] text-stone-600">SÉRIE</div>
             <div className="font-display text-2xl text-chrono leading-none">
               {streak}🔥
               {currentMultiplier > 1 && (
@@ -1542,7 +1538,7 @@ const SoloChrono = ({ onBack }) => {
 
           <div className="bg-white/80 p-8 rounded-3xl flex flex-col items-center gap-2 border-2 border-stone-900 w-full">
             <div className="text-xs text-stone-600">SCORE FINAL</div>
-            <div className="font-display text-7xl text-stone-900 leading-none">{score}</div>
+            <div className="my-2"><Odometer value={score} className="text-5xl" /></div>
             <div className="grid grid-cols-3 gap-4 mt-4 w-full">
               <div className="text-center">
                 <div className="font-bold text-2xl text-stone-900">{solved}</div>
@@ -1616,16 +1612,16 @@ const SoloChrono = ({ onBack }) => {
         <header className="flex items-center justify-between">
           <button onClick={onBack} className="text-stone-700 text-sm">← Quitter</button>
           <div className="text-center">
-            <div className="text-xs text-stone-600">SCORE</div>
-            <div className="font-display text-3xl text-stone-900 leading-none">
-              {score}
+            <div className="font-display text-xs tracking-[0.25em] text-stone-600">SCORE</div>
+            <div className="mt-0.5 flex items-center justify-center">
+              <Odometer value={score} className="text-xl" />
               {currentMultiplier > 1 && (
                 <span className="ml-1 text-xs bg-chrono-solid text-white px-1 py-0.5 rounded align-middle">x{currentMultiplier}</span>
               )}
             </div>
           </div>
           <div className={`text-right transition-all ${urgent ? "animate-pulse" : ""}`}>
-            <div className="text-xs text-stone-600">TEMPS</div>
+            <div className="font-display text-xs tracking-[0.25em] text-stone-600">TEMPS</div>
             <div className={`font-display text-3xl leading-none ${urgent ? "text-chrono" : "text-stone-900"}`}>{timeLeft}</div>
           </div>
         </header>
@@ -2556,7 +2552,7 @@ const ChallengeMode = ({ onBack }) => {
 
           <div className="bg-white/80 p-6 rounded-3xl flex flex-col items-center gap-2 border-2 border-stone-900">
             <div className="text-xs text-stone-600">TA GLOIRE</div>
-            <div className="font-display text-7xl text-stone-900 leading-none">{score}</div>
+            <div className="my-2"><Odometer value={score} className="text-5xl" /></div>
             <div className="text-sm text-stone-700 mt-2">{acceptedCount}/{plates.length} plaques terrassées</div>
           </div>
 
@@ -2622,8 +2618,8 @@ const ChallengeMode = ({ onBack }) => {
             <div className="text-sm font-bold text-stone-900">{currentIdx + 1} / {plates.length}</div>
           </div>
           <div className="text-right">
-            <div className="text-xs text-stone-600">SCORE</div>
-            <div key={score} className="font-display text-2xl text-stone-900 leading-none anim-bump">{score}</div>
+            <div className="font-display text-xs tracking-[0.25em] text-stone-600">SCORE</div>
+            <div className="mt-0.5"><Odometer value={score} className="text-base" /></div>
           </div>
         </header>
 

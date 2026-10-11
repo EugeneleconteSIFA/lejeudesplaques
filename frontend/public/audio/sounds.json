@@ -1,0 +1,169 @@
+{
+  "generator": "Game Song IA (tools/render.mjs)",
+  "sounds": [
+    {
+      "file": "correct",
+      "type": "sfx",
+      "ogg": "correct.ogg",
+      "mp3": "correct.mp3",
+      "duration": 2.812,
+      "loop": false,
+      "prompt": "Pièce collecte gemme bonne réponse",
+      "seed": 2101,
+      "style": "cartoon",
+      "category": "piece",
+      "understood": [
+        "Pièce / ramassage"
+      ],
+      "source": "echantillons",
+      "bytes": {
+        "ogg": 45791,
+        "mp3": 68336
+      }
+    },
+    {
+      "file": "wrong",
+      "type": "sfx",
+      "ogg": "wrong.ogg",
+      "mp3": "wrong.mp3",
+      "duration": 0.51,
+      "loop": false,
+      "prompt": "Mauvaise réponse erreur buzzer",
+      "seed": 2102,
+      "style": "cartoon",
+      "category": "erreur",
+      "understood": [
+        "Erreur / échec"
+      ],
+      "source": "echantillons",
+      "bytes": {
+        "ogg": 8661,
+        "mp3": 13165
+      }
+    },
+    {
+      "file": "skip",
+      "type": "sfx",
+      "ogg": "skip.ogg",
+      "mp3": "skip.mp3",
+      "duration": 0.645,
+      "loop": false,
+      "prompt": "Saut rebond léger passer",
+      "seed": 2103,
+      "style": "cartoon",
+      "category": "saut",
+      "understood": [
+        "Saut",
+        "aigu"
+      ],
+      "source": "echantillons",
+      "bytes": {
+        "ogg": 10958,
+        "mp3": 16300
+      }
+    },
+    {
+      "file": "tick",
+      "type": "sfx",
+      "ogg": "tick.ogg",
+      "mp3": "tick.mp3",
+      "duration": 0.285,
+      "loop": false,
+      "prompt": "Clic bouton sélection aigu chrono",
+      "seed": 2104,
+      "style": "cartoon",
+      "category": "clic",
+      "understood": [
+        "Clic d’interface",
+        "aigu"
+      ],
+      "source": "echantillons",
+      "bytes": {
+        "ogg": 5108,
+        "mp3": 7523
+      }
+    },
+    {
+      "file": "time_up",
+      "type": "sfx",
+      "ogg": "time_up.ogg",
+      "mp3": "time_up.mp3",
+      "duration": 0.434,
+      "loop": false,
+      "prompt": "Game over erreur fin du chrono",
+      "seed": 2105,
+      "style": "cartoon",
+      "category": "erreur",
+      "understood": [
+        "Erreur / échec"
+      ],
+      "source": "echantillons",
+      "bytes": {
+        "ogg": 7765,
+        "mp3": 11284
+      }
+    },
+    {
+      "file": "record",
+      "type": "sfx",
+      "ogg": "record.ogg",
+      "mp3": "record.mp3",
+      "duration": 0.669,
+      "loop": false,
+      "prompt": "Power-up bonus level up nouveau record",
+      "seed": 2106,
+      "style": "cartoon",
+      "category": "powerup",
+      "understood": [
+        "Power-up"
+      ],
+      "source": "echantillons",
+      "bytes": {
+        "ogg": 11430,
+        "mp3": 16927
+      }
+    },
+    {
+      "file": "click",
+      "type": "sfx",
+      "ogg": "click.ogg",
+      "mp3": "click.mp3",
+      "duration": 0.532,
+      "loop": false,
+      "prompt": "Clic bouton menu",
+      "seed": 2107,
+      "style": "cartoon",
+      "category": "clic",
+      "understood": [
+        "Clic d’interface"
+      ],
+      "source": "echantillons",
+      "bytes": {
+        "ogg": 8988,
+        "mp3": 13792
+      }
+    },
+    {
+      "file": "music_calm",
+      "type": "music",
+      "ogg": "music_calm.ogg",
+      "mp3": "music_calm.mp3",
+      "duration": 27.042,
+      "loop": true,
+      "bpm": 71,
+      "bars": 8,
+      "prompt": "Calme réflexion route douce",
+      "seed": 2201,
+      "style": "realiste",
+      "category": "calme",
+      "understood": [
+        "Calme"
+      ],
+      "source": "echantillons",
+      "bytes": {
+        "ogg": 437618,
+        "mp3": 650135
+      }
+    }
+  ]
+}

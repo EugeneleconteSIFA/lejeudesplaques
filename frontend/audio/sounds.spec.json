@@ -1,0 +1,79 @@
+{
+  "sounds": [
+    {
+      "file": "correct",
+      "type": "sfx",
+      "prompt": "Pièce collecte gemme bonne réponse",
+      "style": "cartoon",
+      "intensity": "douce",
+      "duration": "court",
+      "seed": 2101
+    },
+    {
+      "file": "wrong",
+      "type": "sfx",
+      "prompt": "Mauvaise réponse erreur buzzer",
+      "style": "cartoon",
+      "intensity": "douce",
+      "duration": "court",
+      "seed": 2102
+    },
+    {
+      "file": "skip",
+      "type": "sfx",
+      "prompt": "Saut rebond léger passer",
+      "style": "cartoon",
+      "intensity": "douce",
+      "duration": "court",
+      "seed": 2103
+    },
+    {
+      "file": "tick",
+      "type": "sfx",
+      "prompt": "Clic bouton sélection aigu chrono",
+      "style": "cartoon",
+      "intensity": "douce",
+      "duration": "court",
+      "seed": 2104
+    },
+    {
+      "file": "time_up",
+      "type": "sfx",
+      "prompt": "Game over erreur fin du chrono",
+      "style": "cartoon",
+      "intensity": "moyenne",
+      "duration": "moyen",
+      "seed": 2105
+    },
+    {
+      "file": "record",
+      "type": "sfx",
+      "prompt": "Power-up bonus level up nouveau record",
+      "style": "cartoon",
+      "intensity": "moyenne",
+      "duration": "long",
+      "seed": 2106
+    },
+    {
+      "file": "click",
+      "type": "sfx",
+      "prompt": "Clic bouton menu",
+      "style": "cartoon",
+      "intensity": "douce",
+      "duration": "court",
+      "seed": 2107
+    },
+    {
+      "file": "music_calm",
+      "type": "music",
+      "prompt": "Calme réflexion route douce",
+      "style": "auto",
+      "intensity": "douce",
+      "mood": "calme",
+      "bars": 8,
+      "tempo": "lent",
+      "loop": true,
+      "seed": 2201
+    }
+  ]
+}

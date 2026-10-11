@@ -10,40 +10,93 @@
 }
 
 @layer components {
-  .btn-chrono {
-    background-color: #d32f2f;
-    transition: background-color 0.15s;
-  }
-  .btn-chrono:hover {
-    background-color: #b71c1c;
-  }
-  .btn-multi {
-    background-color: #003399;
-    transition: background-color 0.15s;
-  }
-  .btn-multi:hover {
-    background-color: #001f5c;
-  }
-  .bg-chrono-solid {
-    background-color: #d32f2f;
-  }
-  .bg-multi-solid {
-    background-color: #003399;
-  }
-  .text-chrono {
-    color: #d32f2f;
-  }
-  .border-chrono {
-    border-color: #d32f2f;
-  }
-  .bg-gradient-cream {
-    background: linear-gradient(to bottom, #fde9c1, #fff4dc);
-  }
-  .bg-gradient-lobby {
-    background: linear-gradient(to bottom, #fde9c1, #b8d8e0);
+  /* ---------- Fonds : papier de carte routière ---------- */
+  .bg-paper,
+  .bg-gradient-cream,
+  .bg-gradient-lobby,
+  .bg-gradient-home {
+    background-color: #F6ECD4;
+    background-image:
+      /* grain du papier */
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .35 0 0 0 0 .2 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E"),
+      /* routes de la carte */
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='420' fill='none'%3E%3Cpath d='M-20 300 C 90 260 140 330 230 280 S 380 180 440 210' stroke='%23E39479' stroke-opacity='.28' stroke-width='5'/%3E%3Cpath d='M60 -20 C 90 90 40 160 120 230 S 170 380 140 440' stroke='%23FFC93C' stroke-opacity='.35' stroke-width='3'/%3E%3Cpath d='M-20 90 C 120 120 200 40 300 80 S 400 140 440 110' stroke='%232B6CB0' stroke-opacity='.10' stroke-width='1.5' stroke-dasharray='6 5'/%3E%3C/svg%3E");
   }
   .bg-gradient-home {
-    background: linear-gradient(to bottom, #fde9c1 0%, #fff4dc 50%, #b8d8e0 100%);
+    background-image:
+      linear-gradient(to bottom, rgba(255, 201, 60, .35), rgba(246, 236, 212, 0) 260px),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .35 0 0 0 0 .2 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E"),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='420' fill='none'%3E%3Cpath d='M-20 300 C 90 260 140 330 230 280 S 380 180 440 210' stroke='%23E39479' stroke-opacity='.28' stroke-width='5'/%3E%3Cpath d='M60 -20 C 90 90 40 160 120 230 S 170 380 140 440' stroke='%23FFC93C' stroke-opacity='.35' stroke-width='3'/%3E%3Cpath d='M-20 90 C 120 120 200 40 300 80 S 400 140 440 110' stroke='%232B6CB0' stroke-opacity='.10' stroke-width='1.5' stroke-dasharray='6 5'/%3E%3C/svg%3E");
+  }
+  .bg-gradient-lobby {
+    background-color: #E9ECDD;
+  }
+
+  /* ---------- Couleurs de mode ---------- */
+  .btn-chrono { background-color: #F26B1D; transition: background-color 0.15s; }
+  .btn-chrono:hover { background-color: #D4560F; }
+  .btn-multi { background-color: #2B6CB0; transition: background-color 0.15s; }
+  .btn-multi:hover { background-color: #1F5590; }
+  .bg-chrono-solid { background-color: #F26B1D; }
+  .bg-multi-solid { background-color: #2B6CB0; }
+  .text-chrono { color: #D4560F; }
+  .border-chrono { border-color: #F26B1D; }
+
+  /* ---------- Panneau de sortie d'autoroute ---------- */
+  .road-sign {
+    position: relative;
+    border-radius: 14px;
+    box-shadow:
+      inset 0 0 0 3px currentColor,
+      inset 0 0 0 5px rgba(255, 255, 255, .95),
+      0 6px 0 rgba(30, 39, 64, .25),
+      0 10px 18px rgba(30, 39, 64, .18);
+    color: inherit;
+  }
+  .road-sign:active { transform: translateY(3px); box-shadow: inset 0 0 0 3px currentColor, inset 0 0 0 5px rgba(255,255,255,.95), 0 3px 0 rgba(30,39,64,.25); }
+  .road-sign-tab {
+    position: absolute;
+    top: -11px;
+    left: 18px;
+    padding: 1px 8px 0;
+    border-radius: 6px;
+    background: #FFC93C;
+    color: #1E2740;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 13px;
+    letter-spacing: .08em;
+    border: 2px solid #1E2740;
+  }
+
+  /* ---------- Compteur kilométrique ---------- */
+  .odometer {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 6px;
+    background: #1E2740;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.6);
+  }
+  .odometer-digit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.05em;
+    height: 1.35em;
+    border-radius: 3px;
+    background: linear-gradient(to bottom, #3a4566 0%, #1b2238 48%, #10162a 52%, #2b3555 100%);
+    color: #FDF8EC;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .odometer-digit.is-last { background: linear-gradient(to bottom, #FDF8EC 0%, #EBDDBC 48%, #D9C59C 52%, #F6ECD4 100%); color: #B3452B; }
+
+  /* Bandeau soleil couchant (rayures 70s) */
+  .sunset-stripes {
+    height: 10px;
+    border-radius: 999px;
+    background: linear-gradient(to bottom, #FFC93C 0 33%, #F26B1D 33% 66%, #B3452B 66% 100%);
   }
 }
 
