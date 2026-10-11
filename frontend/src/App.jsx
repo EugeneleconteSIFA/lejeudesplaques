@@ -194,6 +194,42 @@ const computePoints = (result, themeRespected, streak = 0) => {
   return Math.round(pts * streakMultiplier(streak));
 };
 
+// Correspondance en direct pendant la saisie : état de chaque lettre (true/false/null)
+const liveMatch = (answer, plate) => {
+  const [L1, L2, L3, L4] = getPlateLetters(plate);
+  const names = parseNames(answer || "");
+  if (names.length === 0) return { states: [null, null, null, null], chain: false };
+  const [p1, p2] = names;
+  if (names.length === 1 && L2 === L3 && p1.first === L1 && p1.last === L4) {
+    return { states: [true, null, null, true], chain: true };
+  }
+  return {
+    states: [p1.first === L1, p1.last === L2, p2 ? p2.first === L3 : null, p2 ? p2.last === L4 : null],
+    chain: false,
+  };
+};
+
+// Petit retour haptique (mobile) — silencieux si non supporté
+const buzz = (pattern) => {
+  try { navigator.vibrate?.(pattern); } catch (e) { /* */ }
+};
+
+// Retour haptique automatique à chaque nouveau feedback
+const useFeedbackHaptics = (feedback) => {
+  useEffect(() => {
+    if (feedback) buzz(feedback.valid ? 25 : [40, 60, 40]);
+  }, [feedback]);
+};
+
+// Attributs communs aux champs de réponse : pas d'autocorrection qui massacre les noms
+const ANSWER_INPUT_PROPS = {
+  autoComplete: "off",
+  autoCorrect: "off",
+  autoCapitalize: "words",
+  spellCheck: false,
+  enterKeyHint: "send",
+};
+
 // Cache global : nom normalisé -> { exists, description }
 const celebrityCache = new Map();
 const cacheKey = (name) => removeAccents(name.trim().toLowerCase()).replace(/\s+/g, " ");
@@ -344,6 +380,67 @@ const MicButton = ({ onTranscript, disabled }) => {
 
 
 // ============================================================
+// INDICE DE LETTRES (feedback en direct)
+// ============================================================
+
+const LetterTile = ({ letter, state, dim }) => (
+  <span
+    className={`inline-flex items-center justify-center w-8 h-9 rounded-lg font-plate text-lg border-2 transition-colors duration-200 ${
+      state === true ? "bg-green-500 border-green-600 text-white" :
+      state === false ? "bg-red-100 border-red-400 text-red-800" :
+      dim ? "bg-white/40 border-stone-300 text-stone-400" :
+      "bg-white border-stone-300 text-stone-900"
+    }`}
+  >{letter}</span>
+);
+
+const PlateHint = ({ plate, answer = "" }) => {
+  if (!plate) return null;
+  const [L1, L2, L3, L4] = getPlateLetters(plate);
+  const { states, chain } = liveMatch(answer, plate);
+  return (
+    <div className="flex flex-col items-center gap-1.5" aria-hidden="true">
+      <div className="flex items-center gap-1.5">
+        <LetterTile letter={L1} state={states[0]} />
+        <LetterTile letter={L2} state={states[1]} dim={chain} />
+        <span className="text-stone-500 font-bold mx-1">{chain ? "⛓️" : "+"}</span>
+        <LetterTile letter={L3} state={states[2]} dim={chain} />
+        <LetterTile letter={L4} state={states[3]} />
+      </div>
+      {canChain(plate) && (
+        <div className="text-xs text-stone-600">
+          ou par Chasles ⛓️ une seule célébrité <span className="font-mono font-bold">{L1}{L4}</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Fond de modale commun : Échap pour fermer, scroll de la page bloqué
+const ModalBackdrop = ({ onClose, children }) => {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [onClose]);
+  return (
+    <div
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 bg-stone-900/70 z-50 flex items-center justify-center p-4 anim-fade-in"
+    >
+      {children}
+    </div>
+  );
+};
+
+// ============================================================
 // COMPOSANT PLAQUE
 // ============================================================
 
@@ -356,7 +453,7 @@ const Plate = ({ plate, size = "lg" }) => {
   };
 
   return (
-    <div className={`${sizeClasses[size]} select-none drop-shadow-xl`}>
+    <div key={plate} className={`${sizeClasses[size]} select-none drop-shadow-xl anim-plate-in`}>
       <svg viewBox="0 0 520 110" xmlns="http://www.w3.org/2000/svg" className="w-full h-auto">
         {/* Corps de la plaque */}
         <rect x="2" y="2" width="516" height="106" rx="10" fill="white" stroke="#2a2a2a" strokeWidth="2"/>
@@ -427,10 +524,7 @@ const Plate = ({ plate, size = "lg" }) => {
 // ============================================================
 
 const ChaslesModal = ({ onClose }) => (
-  <div
-    onClick={onClose}
-    className="fixed inset-0 bg-stone-900/70 z-50 flex items-center justify-center p-4"
-  >
+  <ModalBackdrop onClose={onClose}>
     <div
       onClick={e => e.stopPropagation()}
       className="bg-gradient-cream max-w-md w-full rounded-3xl p-6 shadow-2xl border-4 border-stone-900 max-h-[90vh] overflow-y-auto"
@@ -481,7 +575,7 @@ const ChaslesModal = ({ onClose }) => (
         Refermer les annales
       </button>
     </div>
-  </div>
+  </ModalBackdrop>
 );
 
 // ============================================================
@@ -489,10 +583,7 @@ const ChaslesModal = ({ onClose }) => (
 // ============================================================
 
 const RulesModal = ({ onClose }) => (
-  <div
-    onClick={onClose}
-    className="fixed inset-0 bg-stone-900/70 z-50 flex items-center justify-center p-4"
-  >
+  <ModalBackdrop onClose={onClose}>
     <div
       onClick={e => e.stopPropagation()}
       className="bg-gradient-cream max-w-md w-full rounded-3xl p-6 shadow-2xl border-4 border-stone-900 max-h-[90vh] overflow-y-auto"
@@ -556,18 +647,129 @@ const RulesModal = ({ onClose }) => (
         Que la partie commence
       </button>
     </div>
-  </div>
+  </ModalBackdrop>
 );
+
+// ============================================================
+// MODALE — INSTALLER SUR L'ÉCRAN D'ACCUEIL
+// ============================================================
+
+const detectPlatform = () => {
+  const ua = navigator.userAgent || "";
+  if (/iPhone|iPad|iPod/i.test(ua)) return "ios";
+  if (/Android/i.test(ua)) return "android";
+  return "desktop";
+};
+
+const InstallModal = ({ onClose }) => {
+  const [tab, setTab] = useState(() => detectPlatform());
+  return (
+    <ModalBackdrop onClose={onClose}>
+      <div
+        onClick={e => e.stopPropagation()}
+        className="bg-gradient-cream max-w-md w-full rounded-3xl p-6 shadow-2xl border-4 border-stone-900 max-h-[90vh] overflow-y-auto"
+      >
+        <div className="flex justify-between items-start mb-4">
+          <div className="text-xs tracking-[0.3em] text-stone-700">📱 INSTALLER</div>
+          <button onClick={onClose} className="text-stone-700 hover:text-stone-900 text-xl leading-none">✕</button>
+        </div>
+
+        <h2 className="font-display text-3xl text-stone-900 text-center leading-tight mb-1">
+          AJOUTER À L'ÉCRAN<br/>D'ACCUEIL
+        </h2>
+        <p className="text-center text-sm text-stone-700 mb-5">
+          Un clic sur Chasles et hop, dans ta poche.
+        </p>
+
+        {/* Tabs iOS / Android */}
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          <button
+            onClick={() => setTab("ios")}
+            className={`p-2 rounded-xl text-sm font-medium ${
+              tab === "ios" ? "bg-stone-900 text-white" : "bg-stone-100 text-stone-700"
+            }`}
+          >
+             iPhone / iPad
+          </button>
+          <button
+            onClick={() => setTab("android")}
+            className={`p-2 rounded-xl text-sm font-medium ${
+              tab === "android" ? "bg-stone-900 text-white" : "bg-stone-100 text-stone-700"
+            }`}
+          >
+            🤖 Android
+          </button>
+        </div>
+
+        {tab === "ios" ? (
+          <div className="space-y-3 text-sm text-stone-800 leading-relaxed">
+            <div className="bg-white/70 rounded-xl p-3 flex gap-3 items-start">
+              <div className="text-2xl">1️⃣</div>
+              <div>Ouvre le site dans <strong>Safari</strong> (pas Chrome ni une autre app).</div>
+            </div>
+            <div className="bg-white/70 rounded-xl p-3 flex gap-3 items-start">
+              <div className="text-2xl">2️⃣</div>
+              <div>Appuie sur l'icône <strong>Partager</strong>
+                <span className="inline-flex items-center justify-center w-6 h-6 mx-1 bg-stone-900 text-white rounded text-xs align-middle">⬆︎</span>
+                en bas de l'écran (ou en haut à droite sur iPad).
+              </div>
+            </div>
+            <div className="bg-white/70 rounded-xl p-3 flex gap-3 items-start">
+              <div className="text-2xl">3️⃣</div>
+              <div>Fais défiler et choisis <strong>« Sur l'écran d'accueil »</strong>.</div>
+            </div>
+            <div className="bg-white/70 rounded-xl p-3 flex gap-3 items-start">
+              <div className="text-2xl">4️⃣</div>
+              <div>Valide avec <strong>« Ajouter »</strong>. Michel Chasles t'attend sur ton écran.</div>
+            </div>
+          </div>
+        ) : tab === "android" ? (
+          <div className="space-y-3 text-sm text-stone-800 leading-relaxed">
+            <div className="bg-white/70 rounded-xl p-3 flex gap-3 items-start">
+              <div className="text-2xl">1️⃣</div>
+              <div>Ouvre le site dans <strong>Chrome</strong>.</div>
+            </div>
+            <div className="bg-white/70 rounded-xl p-3 flex gap-3 items-start">
+              <div className="text-2xl">2️⃣</div>
+              <div>Appuie sur les <strong>⋮ trois points</strong> en haut à droite.</div>
+            </div>
+            <div className="bg-white/70 rounded-xl p-3 flex gap-3 items-start">
+              <div className="text-2xl">3️⃣</div>
+              <div>Choisis <strong>« Ajouter à l'écran d'accueil »</strong> (ou « Installer l'application »).</div>
+            </div>
+            <div className="bg-white/70 rounded-xl p-3 flex gap-3 items-start">
+              <div className="text-2xl">4️⃣</div>
+              <div>Valide. L'icône Chasles apparaît avec les autres apps.</div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3 text-sm text-stone-800 leading-relaxed">
+            <div className="bg-white/70 rounded-xl p-3">
+              Sur ordinateur, mets le site en <strong>favori</strong> (⌘/Ctrl+D). Sinon ouvre-le sur ton téléphone pour l'installer comme une app.
+            </div>
+            <div className="bg-white/70 rounded-xl p-3 text-xs text-stone-600">
+              💡 Sur Chrome/Edge desktop, tu peux aussi cliquer sur l'icône <strong>« Installer »</strong> qui apparaît parfois dans la barre d'adresse.
+            </div>
+          </div>
+        )}
+
+        <button
+          onClick={onClose}
+          className="w-full mt-5 bg-stone-900 text-white p-3 rounded-2xl font-medium hover:bg-stone-800"
+        >
+          Compris
+        </button>
+      </div>
+    </ModalBackdrop>
+  );
+};
 
 // ============================================================
 // MODALE — CONTESTATION D'UN VERDICT
 // ============================================================
 
 const ContestModal = ({ answer, winner, onCancel, onConfirm }) => (
-  <div
-    onClick={onCancel}
-    className="fixed inset-0 bg-stone-900/70 z-50 flex items-center justify-center p-4"
-  >
+  <ModalBackdrop onClose={onCancel}>
     <div
       onClick={e => e.stopPropagation()}
       className="bg-white max-w-md w-full rounded-3xl p-6 shadow-2xl border-4 border-red-800"
@@ -598,17 +800,69 @@ const ContestModal = ({ answer, winner, onCancel, onConfirm }) => (
         </button>
       </div>
     </div>
-  </div>
+  </ModalBackdrop>
 );
 
 // ============================================================
 // ÉCRAN D'ACCUEIL
 // ============================================================
 
+const PORTAL_URL = "https://fullgaz.kernse.fr";
+
+// Le compte Full Gaz (cookie sur .kernse.fr) ne peut pas être lu depuis ce domaine :
+// on renvoie vers le portail et on gère ici seulement le pseudo local du jeu.
+const AccountModal = ({ onClose }) => {
+  const [pseudo, setPseudo] = useState(() => {
+    try { return localStorage.getItem("multi:pseudo") || localStorage.getItem("challenge:pseudo") || ""; } catch (e) { return ""; }
+  });
+  const save = (p) => {
+    setPseudo(p);
+    try {
+      localStorage.setItem("multi:pseudo", p);
+      localStorage.setItem("challenge:pseudo", p);
+    } catch (e) {}
+  };
+  return (
+    <ModalBackdrop onClose={onClose}>
+      <div
+        onClick={e => e.stopPropagation()}
+        className="bg-gradient-cream max-w-md w-full rounded-3xl p-6 shadow-2xl border-4 border-stone-900 max-h-[90vh] overflow-y-auto"
+      >
+        <div className="flex justify-between items-start mb-4">
+          <div className="text-xs tracking-[0.3em] text-stone-700">👤 MON COMPTE</div>
+          <button onClick={onClose} aria-label="Fermer" className="text-stone-700 hover:text-stone-900 text-xl leading-none min-w-[44px] min-h-[44px] -mt-3 -mr-3">✕</button>
+        </div>
+        <div className="bg-white/80 p-5 rounded-2xl space-y-3">
+          <label htmlFor="account-pseudo" className="block text-xs text-stone-600 uppercase tracking-wider">Ton pseudo dans ce jeu</label>
+          <input
+            id="account-pseudo"
+            value={pseudo}
+            onChange={e => save(e.target.value.slice(0, 16))}
+            placeholder="Eugène"
+            className="w-full p-3 rounded-xl border-2 border-stone-300 focus:border-stone-900 outline-none"
+          />
+          <p className="text-xs text-stone-600">Enregistré sur cet appareil, utilisé pour les salons et les défis.</p>
+        </div>
+        <p className="text-sm text-stone-700 mt-5 mb-3 leading-relaxed">
+          Ton compte Full Gaz (connexion, profil) se gère sur le portail Full Gaz.
+        </p>
+        <a
+          href={PORTAL_URL}
+          className="block w-full text-center bg-stone-900 text-white p-4 rounded-2xl font-display text-xl tracking-wide hover:bg-stone-800 transition-all shadow-lg"
+        >
+          OUVRIR FULL GAZ →
+        </a>
+      </div>
+    </ModalBackdrop>
+  );
+};
+
 const Home = ({ onSelectMode }) => {
   const [examplePlate, setExamplePlate] = useState("DA-149-PY");
   const [showChasles, setShowChasles] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [showInstall, setShowInstall] = useState(false);
+  const [showAccount, setShowAccount] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => setExamplePlate(randomPlate()), 3000);
@@ -619,7 +873,24 @@ const Home = ({ onSelectMode }) => {
     <div className="min-h-screen bg-gradient-home flex flex-col items-center justify-start p-4 sm:p-8">
       {showChasles && <ChaslesModal onClose={() => setShowChasles(false)} />}
       {showRules && <RulesModal onClose={() => setShowRules(false)} />}
+      {showInstall && <InstallModal onClose={() => setShowInstall(false)} />}
+      {showAccount && <AccountModal onClose={() => setShowAccount(false)} />}
       <div className="w-full max-w-md flex flex-col items-center gap-6">
+        <div className="w-full flex justify-between items-center -mb-4">
+          <a
+            href={PORTAL_URL}
+            aria-label="Retour au portail Full Gaz"
+            className="min-h-[44px] inline-flex items-center px-3 rounded-full text-sm text-stone-800 hover:text-stone-900 hover:bg-white/50 tracking-wider"
+          >
+            ← Full Gaz
+          </a>
+          <button
+            onClick={() => setShowAccount(true)}
+            className="min-h-[44px] inline-flex items-center px-4 rounded-full text-sm bg-white/70 text-stone-900 border-2 border-stone-900 hover:bg-white tracking-wider"
+          >
+            👤 Mon compte
+          </button>
+        </div>
         <button
           onClick={() => setShowChasles(true)}
           className="self-center text-xs text-stone-700 hover:text-stone-900 underline decoration-dotted underline-offset-4 tracking-wider mt-2"
@@ -705,12 +976,20 @@ const Home = ({ onSelectMode }) => {
           </button>
         </div>
 
-        <button
-          onClick={() => setShowRules(true)}
-          className="text-xs text-stone-700 hover:text-stone-900 underline decoration-dotted underline-offset-4 tracking-wider mt-6"
-        >
-          Comment ça marche ?
-        </button>
+        <div className="flex flex-col items-center gap-2 mt-6 mb-4">
+          <button
+            onClick={() => setShowRules(true)}
+            className="text-xs text-stone-700 hover:text-stone-900 underline decoration-dotted underline-offset-4 tracking-wider"
+          >
+            Comment ça marche ?
+          </button>
+          <button
+            onClick={() => setShowInstall(true)}
+            className="text-xs text-stone-700 hover:text-stone-900 underline decoration-dotted underline-offset-4 tracking-wider"
+          >
+            Comment ajouter sur mon écran de téléphone ?
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -732,7 +1011,18 @@ const SoloZen = ({ onBack }) => {
   const [verifying, setVerifying] = useState(false);
   const [askingClaude, setAskingClaude] = useState(false);
   const [claudeHint, setClaudeHint] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
   const inputRef = useRef(null);
+  useFeedbackHaptics(feedback);
+
+  // Changer de difficulté tire une nouvelle plaque adaptée
+  const changeDifficulty = (d) => {
+    setDifficulty(d);
+    setPlate(randomPlate(d));
+    setAnswer("");
+    setFeedback(null);
+    setClaudeHint(null);
+  };
 
   const currentMultiplier = streakMultiplier(streak);
 
@@ -834,7 +1124,7 @@ const SoloZen = ({ onBack }) => {
           <button onClick={onBack} className="text-stone-700 hover:text-stone-900 text-sm">← Menu</button>
           <div className="text-center">
             <div className="text-xs text-stone-600">SCORE</div>
-            <div className="font-display text-3xl text-stone-900 leading-none">{score}</div>
+            <div key={score} className="font-display text-3xl text-stone-900 leading-none anim-bump">{score}</div>
           </div>
           <div className="text-right">
             <div className="text-xs text-stone-600">SÉRIE</div>
@@ -849,15 +1139,27 @@ const SoloZen = ({ onBack }) => {
           </div>
         </header>
 
-        {/* Ligne difficulté + thème */}
-        <div className="bg-white/60 backdrop-blur rounded-2xl p-3 border border-stone-300 space-y-2">
+        {/* Ligne difficulté + thème (repliable pour garder la plaque visible au-dessus du clavier) */}
+        <button
+          type="button"
+          onClick={() => setShowSettings(v => !v)}
+          aria-expanded={showSettings}
+          className="self-center inline-flex items-center gap-2 min-h-[40px] px-4 rounded-full bg-white/70 border border-stone-300 text-xs text-stone-800 hover:bg-white transition-all"
+        >
+          <span>{DIFFICULTIES.find(d => d.id === difficulty)?.emoji} {DIFFICULTIES.find(d => d.id === difficulty)?.label}</span>
+          <span className="text-stone-400">·</span>
+          <span>{theme.emoji} {theme.label}</span>
+          <span className={`text-stone-500 transition-transform ${showSettings ? "rotate-180" : ""}`}>▾</span>
+        </button>
+        {showSettings && (
+        <div className="bg-white/60 backdrop-blur rounded-2xl p-3 border border-stone-300 space-y-2 anim-pop-in">
           <div>
             <div className="text-xs text-stone-600 mb-1.5">DIFFICULTÉ</div>
             <div className="flex gap-1.5">
               {DIFFICULTIES.map(d => (
                 <button
                   key={d.id}
-                  onClick={() => setDifficulty(d.id)}
+                  onClick={() => changeDifficulty(d.id)}
                   className={`flex-1 px-2 py-1.5 rounded-full text-xs transition-all ${
                     difficulty === d.id ? "bg-stone-900 text-white" : "bg-white text-stone-700 hover:bg-stone-100"
                   }`}
@@ -882,24 +1184,18 @@ const SoloZen = ({ onBack }) => {
                 </button>
               ))}
             </div>
+            {theme.id !== "free" && (
+              <div className="text-xs text-stone-600 italic mt-1">{theme.hint} · +5 pts si respecté</div>
+            )}
           </div>
         </div>
+        )}
 
-        <div className="flex justify-center py-4">
+        <div className="flex justify-center py-2">
           <Plate plate={plate} size="lg" />
         </div>
 
-        <div className="text-center text-stone-600 text-sm">
-          <span className="font-mono font-bold">{getPlateLetters(plate)[0]}{getPlateLetters(plate)[1]}</span>
-          {" + "}
-          <span className="font-mono font-bold">{getPlateLetters(plate)[2]}{getPlateLetters(plate)[3]}</span>
-          {canChain(plate) && (
-            <>
-              {"  ou Chasles ⛓️  "}
-              <span className="font-mono font-bold">{getPlateLetters(plate)[0]}{getPlateLetters(plate)[3]}</span>
-            </>
-          )}
-        </div>
+        <PlateHint plate={plate} answer={answer} />
 
         {/* Input avec micro */}
         <div className="relative">
@@ -909,6 +1205,7 @@ const SoloZen = ({ onBack }) => {
             value={answer}
             onChange={e => setAnswer(e.target.value)}
             onKeyDown={e => e.key === "Enter" && handleSubmit()}
+            {...ANSWER_INPUT_PROPS}
             placeholder="ex : Daniel Auteuil et Paul Young"
             className="w-full p-4 pr-14 rounded-2xl border-2 border-stone-300 focus:border-stone-900 outline-none text-base bg-white"
           />
@@ -925,8 +1222,8 @@ const SoloZen = ({ onBack }) => {
         {!verifying && feedback && (
           <div className={`p-3 rounded-xl text-sm font-medium ${
             feedback.valid
-              ? "bg-green-100 text-green-900 border-2 border-green-400"
-              : "bg-red-50 text-red-900 border-2 border-red-300"
+              ? "bg-green-100 text-green-900 border-2 border-green-400 anim-pop-in"
+              : "bg-red-50 text-red-900 border-2 border-red-300 anim-shake"
           }`}>
             {feedback.valid ? (
               <div className="text-center space-y-1">
@@ -1054,7 +1351,9 @@ const SoloChrono = ({ onBack }) => {
   // Stats de session (in-memory pour la partie en cours)
   const [stats, setStats] = useState({ people: {}, bestStreak: 0, chaslesCount: 0 });
   const [chronoHistory, setChronoHistory] = useState([]); // recap plaque par plaque
+  const [previewPlate] = useState(() => randomPlate("normal")); // stable : ne pas re-tirer à chaque rendu
   const inputRef = useRef(null);
+  useFeedbackHaptics(feedback);
 
   useEffect(() => {
     try { const v = localStorage.getItem("chrono:best"); if (v) setBestScore(parseInt(v)); } catch (e) {}
@@ -1189,7 +1488,7 @@ const SoloChrono = ({ onBack }) => {
             <div className="text-xs tracking-[0.3em] text-stone-600 mb-1">MODE</div>
             <h2 className="font-display text-6xl text-stone-900">CHRONO</h2>
           </div>
-          <Plate plate={randomPlate("normal")} size="lg" />
+          <Plate plate={previewPlate} size="lg" />
           <div className="text-center text-stone-700">
             <p className="text-lg">90 secondes</p>
             <p className="text-sm text-stone-600 mt-1">Enchaîne le plus de plaques possible</p>
@@ -1342,17 +1641,7 @@ const SoloChrono = ({ onBack }) => {
           <Plate plate={plate} size="lg" />
         </div>
 
-        <div className="text-center text-stone-600 text-sm">
-          <span className="font-mono font-bold">{getPlateLetters(plate)[0]}{getPlateLetters(plate)[1]}</span>
-          {" + "}
-          <span className="font-mono font-bold">{getPlateLetters(plate)[2]}{getPlateLetters(plate)[3]}</span>
-          {canChain(plate) && (
-            <>
-              {"  ou Chasles ⛓️  "}
-              <span className="font-mono font-bold">{getPlateLetters(plate)[0]}{getPlateLetters(plate)[3]}</span>
-            </>
-          )}
-        </div>
+        <PlateHint plate={plate} answer={answer} />
 
         <div className="relative">
           <input
@@ -1360,6 +1649,8 @@ const SoloChrono = ({ onBack }) => {
             value={answer}
             onChange={e => setAnswer(e.target.value)}
             onKeyDown={e => e.key === "Enter" && handleSubmit()}
+            {...ANSWER_INPUT_PROPS}
+            autoFocus
             placeholder="Tape vite..."
             className="w-full p-4 pr-14 rounded-2xl border-2 border-stone-300 focus:border-stone-900 outline-none text-base bg-white"
           />
@@ -1369,8 +1660,8 @@ const SoloChrono = ({ onBack }) => {
         {feedback && (
           <div className={`p-3 rounded-xl text-sm font-medium ${
             feedback.valid
-              ? "bg-green-100 text-green-900 border-2 border-green-400 text-center"
-              : "bg-red-50 text-red-900 border-2 border-red-300"
+              ? "bg-green-100 text-green-900 border-2 border-green-400 anim-pop-in text-center"
+              : "bg-red-50 text-red-900 border-2 border-red-300 anim-shake"
           }`}>
             {feedback.valid ? (
               <div className="text-center">
@@ -1420,6 +1711,7 @@ const MultiRoom = ({ onBack }) => {
   const [copied, setCopied] = useState(false);
   const pollRef = useRef(null);
   const resolvingRef = useRef(false);
+  useFeedbackHaptics(feedback);
 
   // Reprise de session après F5
   useEffect(() => {
@@ -1834,17 +2126,7 @@ const MultiRoom = ({ onBack }) => {
               <Plate plate={room.plate} size="lg" />
             </div>
 
-            <div className="text-center text-stone-600 text-sm">
-              <span className="font-mono font-bold">{getPlateLetters(room.plate)[0]}{getPlateLetters(room.plate)[1]}</span>
-              {" + "}
-              <span className="font-mono font-bold">{getPlateLetters(room.plate)[2]}{getPlateLetters(room.plate)[3]}</span>
-              {canChain(room.plate) && (
-                <>
-                  {"  ou Chasles ⛓️  "}
-                  <span className="font-mono font-bold">{getPlateLetters(room.plate)[0]}{getPlateLetters(room.plate)[3]}</span>
-                </>
-              )}
-            </div>
+            <PlateHint plate={room.plate} answer={answer} />
 
             {isVoting && room.vote && (
               <div className="bg-amber-50 border-2 border-amber-400 rounded-2xl p-4 space-y-3">
@@ -1906,6 +2188,7 @@ const MultiRoom = ({ onBack }) => {
                         value={answer}
                         onChange={e => setAnswer(e.target.value)}
                         onKeyDown={e => e.key === "Enter" && submitAnswer()}
+                        {...ANSWER_INPUT_PROPS}
                         placeholder="Dégaine avant les autres..."
                         disabled={verifying || (room.checking && room.checking.player !== playerId)}
                         className="w-full p-4 pr-14 rounded-2xl border-2 border-stone-300 focus:border-stone-900 outline-none text-base bg-white disabled:bg-stone-100"
@@ -1923,8 +2206,8 @@ const MultiRoom = ({ onBack }) => {
                     {!verifying && feedback && (
                       <div className={`p-3 rounded-xl text-sm text-center font-medium ${
                         feedback.valid
-                          ? "bg-green-100 text-green-900 border-2 border-green-400"
-                          : "bg-red-50 text-red-900 border-2 border-red-300"
+                          ? "bg-green-100 text-green-900 border-2 border-green-400 anim-pop-in"
+                          : "bg-red-50 text-red-900 border-2 border-red-300 anim-shake"
                       }`}>
                         {feedback.valid ? `✓ +${feedback.points} pts` : feedback.reason}
                       </div>
@@ -2066,6 +2349,7 @@ const ChallengeMode = ({ onBack }) => {
   const [selectedTheme, setSelectedTheme] = useState(THEMES[0]);
   const [currentTheme, setCurrentTheme] = useState(THEMES[0]); // thème en cours de défi
   const inputRef = useRef(null);
+  useFeedbackHaptics(feedback);
 
   useEffect(() => {
     try { const v = localStorage.getItem("challenge:pseudo"); if (v) setPseudo(v); } catch (e) {}
@@ -2129,15 +2413,17 @@ const ChallengeMode = ({ onBack }) => {
       accepted = true;
     }
 
-    setResults(r => [...r, { plate: currentPlate, answer: result.names.join(" + "), points: pts, accepted, mode: result.mode, themeBonus: currentTheme.id !== "free" && themeMatched }]);
-    setScore(s => s + pts);
+    const newResults = [...results, { plate: currentPlate, answer: result.names.join(" + "), points: pts, accepted, mode: result.mode, themeBonus: currentTheme.id !== "free" && themeMatched }];
+    const newScore = score + pts;
+    setResults(newResults);
+    setScore(newScore);
     setFeedback({ valid: accepted, points: pts, reason: accepted ? "" : (verification.reason || "Non reconnu") });
 
     setTimeout(() => {
       setFeedback(null);
       setAnswer("");
       if (currentIdx + 1 >= plates.length) {
-        finishChallenge();
+        finishChallenge(newScore, newResults);
       } else {
         setCurrentIdx(i => i + 1);
         inputRef.current?.focus();
@@ -2147,21 +2433,23 @@ const ChallengeMode = ({ onBack }) => {
 
   const handleSkip = () => {
     const currentPlate = plates[currentIdx];
-    setResults(r => [...r, { plate: currentPlate, answer: "—", points: 0, accepted: false, skipped: true }]);
+    const newResults = [...results, { plate: currentPlate, answer: "—", points: 0, accepted: false, skipped: true }];
+    setResults(newResults);
     setAnswer("");
     setFeedback(null);
     if (currentIdx + 1 >= plates.length) {
-      finishChallenge();
+      finishChallenge(score, newResults);
     } else {
       setCurrentIdx(i => i + 1);
       inputRef.current?.focus();
     }
   };
 
-  const finishChallenge = async () => {
+  // Valeurs finales passées explicitement : le state n'est pas encore à jour au moment de l'appel
+  const finishChallenge = async (finalScore, finalResults) => {
     setPhase("done");
     try {
-      await challengesAPI.submitScore(code, pseudo, score, results.filter(r => r.accepted).length);
+      await challengesAPI.submitScore(code, pseudo, finalScore, finalResults.filter(r => r.accepted).length);
       const board = await challengesAPI.getLeaderboard(code);
       setLeaderboard(board);
     } catch (e) { console.error("challenge score", e); }
@@ -2169,10 +2457,17 @@ const ChallengeMode = ({ onBack }) => {
 
   const shareText = `🏁 DÉFI INITIALES #${code} — j'ai marqué ${score} pts. Ose me défier.`;
 
-  const copyShareText = () => {
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(shareText).catch(() => {});
-    }
+  const [shared, setShared] = useState(false);
+  const copyShareText = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({ text: shareText });
+      } else {
+        await navigator.clipboard.writeText(shareText);
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+      }
+    } catch (e) { /* partage annulé */ }
   };
 
   // ============ MENU ============
@@ -2285,7 +2580,7 @@ const ChallengeMode = ({ onBack }) => {
             <div className="font-mono text-3xl font-bold text-purple-900">#{code}</div>
             <div className="text-xs text-purple-800 italic">{shareText}</div>
             <button onClick={copyShareText} className="w-full mt-2 bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-xl text-sm font-medium">
-              📋 Copier le message
+              {shared ? "✓ Copié !" : (typeof navigator !== "undefined" && navigator.share ? "📤 Partager" : "📋 Copier le message")}
             </button>
           </div>
 
@@ -2328,7 +2623,7 @@ const ChallengeMode = ({ onBack }) => {
           </div>
           <div className="text-right">
             <div className="text-xs text-stone-600">SCORE</div>
-            <div className="font-display text-2xl text-stone-900 leading-none">{score}</div>
+            <div key={score} className="font-display text-2xl text-stone-900 leading-none anim-bump">{score}</div>
           </div>
         </header>
 
@@ -2349,17 +2644,7 @@ const ChallengeMode = ({ onBack }) => {
           <Plate plate={currentPlate} size="lg" />
         </div>
 
-        <div className="text-center text-stone-600 text-sm">
-          <span className="font-mono font-bold">{getPlateLetters(currentPlate)[0]}{getPlateLetters(currentPlate)[1]}</span>
-          {" + "}
-          <span className="font-mono font-bold">{getPlateLetters(currentPlate)[2]}{getPlateLetters(currentPlate)[3]}</span>
-          {canChain(currentPlate) && (
-            <>
-              {"  ou Chasles ⛓️  "}
-              <span className="font-mono font-bold">{getPlateLetters(currentPlate)[0]}{getPlateLetters(currentPlate)[3]}</span>
-            </>
-          )}
-        </div>
+        <PlateHint plate={currentPlate} answer={answer} />
 
         <div className="relative">
           <input
@@ -2367,6 +2652,7 @@ const ChallengeMode = ({ onBack }) => {
             value={answer}
             onChange={e => setAnswer(e.target.value)}
             onKeyDown={e => e.key === "Enter" && handleSubmit()}
+            {...ANSWER_INPUT_PROPS}
             placeholder="Ta réponse..."
             className="w-full p-4 pr-14 rounded-2xl border-2 border-stone-300 focus:border-stone-900 outline-none text-base bg-white"
           />
@@ -2385,7 +2671,7 @@ const ChallengeMode = ({ onBack }) => {
 
         {!verifying && feedback && (
           <div className={`p-3 rounded-xl text-sm text-center font-medium ${
-            feedback.valid ? "bg-green-100 text-green-900 border-2 border-green-400" : "bg-red-50 text-red-900 border-2 border-red-300"
+            feedback.valid ? "bg-green-100 text-green-900 border-2 border-green-400 anim-pop-in" : "bg-red-50 text-red-900 border-2 border-red-300 anim-shake"
           }`}>
             {feedback.valid ? `✓ +${feedback.points} pts` : feedback.reason}
           </div>
@@ -2431,6 +2717,7 @@ const SurLeVif = ({ onBack }) => {
   const [inputError, setInputError] = useState("");
   const inputRef = useRef(null);
   const answerRef = useRef(null);
+  useFeedbackHaptics(feedback);
 
   const submitPlate = () => {
     const normalized = normalizePlateInput(rawPlate);
@@ -2580,17 +2867,7 @@ const SurLeVif = ({ onBack }) => {
           <Plate plate={plate} size="lg" />
         </div>
 
-        <div className="text-center text-stone-600 text-sm">
-          <span className="font-mono font-bold">{getPlateLetters(plate)[0]}{getPlateLetters(plate)[1]}</span>
-          {" + "}
-          <span className="font-mono font-bold">{getPlateLetters(plate)[2]}{getPlateLetters(plate)[3]}</span>
-          {canChain(plate) && (
-            <>
-              {"  ou Chasles ⛓️  "}
-              <span className="font-mono font-bold">{getPlateLetters(plate)[0]}{getPlateLetters(plate)[3]}</span>
-            </>
-          )}
-        </div>
+        <PlateHint plate={plate} answer={answer} />
 
         <div className="relative">
           <input
@@ -2598,6 +2875,7 @@ const SurLeVif = ({ onBack }) => {
             value={answer}
             onChange={e => setAnswer(e.target.value)}
             onKeyDown={e => e.key === "Enter" && handleSubmit()}
+            {...ANSWER_INPUT_PROPS}
             placeholder="ex : Daniel Auteuil et Paul Young"
             className="w-full p-4 pr-14 rounded-2xl border-2 border-stone-300 focus:border-stone-900 outline-none text-base bg-white"
             disabled={feedback?.valid}
@@ -2635,8 +2913,8 @@ const SurLeVif = ({ onBack }) => {
         {!verifying && feedback && (
           <div className={`p-3 rounded-xl text-sm font-medium ${
             feedback.valid
-              ? "bg-green-100 text-green-900 border-2 border-green-400"
-              : "bg-red-50 text-red-900 border-2 border-red-300"
+              ? "bg-green-100 text-green-900 border-2 border-green-400 anim-pop-in"
+              : "bg-red-50 text-red-900 border-2 border-red-300 anim-shake"
           }`}>
             {feedback.valid ? (
               <div className="text-center space-y-1">
