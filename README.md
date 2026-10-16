@@ -1,16 +1,42 @@
-# Initiales
+# Le jeu des plaques
 
-> Le jeu des plaques d'immatriculation, adapté pour les vacances en voiture.
+> Le jeu des plaques d'immatriculation : sur `EW-143-WS`, trouve une célébrité pour `EW` et une pour `WS`.
+> Jeu de la plateforme [Full Gaz](https://fullgaz.kernse.fr), servi sur https://lejeudesplaques.fr.
 
 **Stack** : FastAPI (backend) + React/Vite (frontend) + SQLite + nginx/systemd (déploiement VPS).
+
+> Le projet s'appelait « Initiales » : les noms techniques du déploiement l'ont gardé
+> (`/var/www/initiales`, `/var/lib/initiales`, service `initiales-backend`, site nginx `initiales`).
+> Ne les renomme pas sans migrer le serveur.
+
+## Modes de jeu
+
+- **Solo · zen** : sans chrono, à ton rythme.
+- **Solo · chrono** : 90 secondes. **Échap** ou le bouton ⏸ = pause (chrono gelé, plaque masquée) ;
+  Échap en pause = fausses notes de cours plein écran (Échap ou un toucher pour revenir). Pause automatique
+  quand l'onglet est masqué. En fin de partie, « Défier un pote » partage un lien avec le score.
+- **Multi · salon** : salon à 4 lettres, le premier qui répond juste emporte la manche.
+- **Défi · partagé** : 10 plaques identiques pour tous (code `1234` ou `1234C` avec thème), classement commun.
+- **Sur le vif** : tu vois une plaque, tu la saisis, tu la craques.
+
+## Paramètres d'URL
+
+Lus une fois au chargement, puis retirés de la barre d'adresse :
+
+| Paramètre | Effet |
+|-----------|-------|
+| `?salon=ABCD` | Ouvre le mode multi et rejoint le salon (code pré-rempli si aucun pseudo n'est connu) |
+| `?pseudo=Nom` | Pseudo par défaut (transmis par le portail), sans écraser un pseudo déjà choisi |
+| `?defi=Nom&s=120` | Accueil : « Nom te défie : bats 120 pts » → « Relever le défi » lance le chrono |
+| `?defi=Nom&s=40&code=1234C` | Idem, mais lance le même défi partagé (`1234C`) |
 
 ## Structure
 
 ```
-initiales/
+lejeudesplaques/
 ├── backend/          # FastAPI : proxy Anthropic, salons multi, leaderboards défi
 │   ├── main.py
-│   ├── game_logic.py # Validation initiales + prompts Claude
+│   ├── game_logic.py # Validation des réponses + prompts Claude
 │   ├── requirements.txt
 │   ├── .env.example
 │   └── start.sh
@@ -65,10 +91,9 @@ Frontend disponible sur http://localhost:5173. Le proxy Vite renvoie les `/api/*
 ### Première installation
 
 ```bash
-# 1. Cloner le repo sur le VPS
-sudo mkdir -p /var/www/initiales
-cd /var/www/initiales
-sudo git clone <ton-repo> .    # ou rsync depuis ta machine
+# 1. Cloner le repo sur le VPS (PAS dans /var/www/initiales : deploy.sh le refuse)
+sudo git clone https://github.com/EugeneleconteSIFA/lejeudesplaques.git /opt/lejeudesplaques
+cd /opt/lejeudesplaques
 
 # 2. Lancer le déploiement (crée les dossiers, installe, configure)
 sudo bash deploy/deploy.sh
@@ -83,7 +108,7 @@ sudo ln -s /etc/nginx/sites-available/initiales /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 
 # 5. HTTPS avec Certbot
-sudo certbot --nginx -d initiales.ton-domaine.com
+sudo certbot --nginx -d lejeudesplaques.fr -d www.lejeudesplaques.fr
 
 # 6. Restart backend avec le vrai .env
 sudo systemctl restart initiales-backend
@@ -92,7 +117,7 @@ sudo systemctl restart initiales-backend
 ### Mises à jour
 
 ```bash
-cd /var/www/initiales
+cd /opt/lejeudesplaques
 git pull
 sudo bash deploy/deploy.sh
 ```
@@ -147,9 +172,10 @@ sudo bash deploy/deploy.sh
 - **Salons multi en mémoire** : les salons sont éphémères. Un salon inactif 30 min est supprimé automatiquement.
 - **Défis persistants** : les scores des défis sont stockés en SQLite pour permettre les comparaisons long terme.
 - **Cache célébrités** : côté client uniquement, réinitialisé à chaque rechargement.
-- **Record chrono** : stocké en `localStorage` (par navigateur).
+- **Record chrono** : stocké en `localStorage` (par navigateur). Le compte Full Gaz (cookie sur `.kernse.fr`)
+  n'est pas lisible depuis lejeudesplaques.fr : pas de synchronisation entre appareils pour l'instant.
 - **Le portrait de Chasles** est utilisé en clin d'œil (relation de Chasles = mécanique du jeu). Photo du 19e siècle, domaine public.
 
 ## Licence
 
-Projet perso pour les vacances. Fais-en ce que tu veux.
+Projet perso, intégré à Full Gaz. Fais-en ce que tu veux.

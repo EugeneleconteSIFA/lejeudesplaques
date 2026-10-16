@@ -592,76 +592,52 @@ const ChaslesModal = ({ onClose }) => (
 );
 
 // ============================================================
-// MODALE — RÈGLES DU JEU (version épique)
+// MODALE — RÈGLES DU JEU (version courte)
 // ============================================================
 
-const RulesModal = ({ onClose }) => (
-  <ModalBackdrop onClose={onClose}>
-    <div
-      onClick={e => e.stopPropagation()}
-      className="bg-gradient-cream max-w-md w-full rounded-3xl p-6 shadow-2xl border-4 border-stone-900 max-h-[90vh] overflow-y-auto"
-    >
-      <div className="flex justify-between items-start mb-4">
-        <div className="text-xs tracking-[0.3em] text-stone-700">📖 LES RÈGLES</div>
-        <button onClick={onClose} className="text-stone-700 hover:text-stone-900 text-xl leading-none">✕</button>
-      </div>
+// Commandes affichées selon l'appareil : tactile (téléphone) ou clavier (ordinateur)
+const isTouchDevice = () => {
+  try { return window.matchMedia("(pointer: coarse)").matches; } catch (e) { return false; }
+};
 
-      <h2 className="font-display text-4xl text-stone-900 text-center leading-none mb-5">
-        COMMENT<br/>ÇA MARCHE ?
-      </h2>
-
-      <div className="space-y-4 text-sm text-stone-800 leading-relaxed">
-        <div>
-          <div className="font-display text-lg text-stone-900 mb-1">🛣️ La voie directe</div>
-          <p>Sur une plaque comme <code className="bg-stone-200 px-1.5 py-0.5 rounded font-mono">EW-143-WS</code>, invoque <strong>deux</strong> célébrités :</p>
-          <ul className="list-disc pl-6 mt-1 space-y-0.5">
-            <li>une pour <code className="bg-stone-200 px-1 rounded font-mono">EW</code> → « <em>Emma Watson</em> »</li>
-            <li>une pour <code className="bg-stone-200 px-1 rounded font-mono">WS</code> → « <em>William Saurin</em> »</li>
-          </ul>
-        </div>
-
-        <div>
-          <div className="font-display text-lg text-stone-900 mb-1">⛓️ La voie de Chasles</div>
-          <p>Quand la 2ème et la 3ème lettre s'accordent (ici <strong>W = W</strong>), tu peux enchaîner : une <strong>seule</strong> âme suffit, celle qui relie la 1ère et la 4ème lettre.</p>
-          <p className="mt-1">Sur <code className="bg-stone-200 px-1.5 py-0.5 rounded font-mono">EW-143-WS</code> → « <em>Élina Svitolina</em> » (EW + WS = ES). Le mathématicien approuve.</p>
-        </div>
-
-        <div>
-          <div className="font-display text-lg text-stone-900 mb-1">💰 Le butin</div>
-          <ul className="list-disc pl-6 space-y-0.5">
-            <li><strong>10 pts</strong> pour une bonne réponse</li>
-            <li><strong>+5 pts</strong> pour une chaîne de Chasles réussie ⛓️</li>
-            <li><strong>+5 pts</strong> si tu respectes le thème imposé 🎯</li>
-            <li><strong>×1.5 à ×3</strong> en série (3, 6, 10 réussites de suite 🔥)</li>
-          </ul>
-        </div>
-
-        <div>
-          <div className="font-display text-lg text-stone-900 mb-1">⚖️ Le jury</div>
-          <p>Chaque réponse est jugée par Claude, l'arbitre. Il accepte largement — même les personnalités de niche — mais refuse les inventions pures. En cas de doute, tu peux <em>défier son verdict</em>.</p>
-        </div>
-
-        <div>
-          <div className="font-display text-lg text-stone-900 mb-1">🎮 Les modes</div>
-          <ul className="list-disc pl-6 space-y-0.5">
-            <li><strong>Zen</strong> — sans timer, à ton rythme</li>
-            <li><strong>Chrono</strong> — 90 secondes pour maximiser le score</li>
-            <li><strong>Multi</strong> — plusieurs guerriers dans un salon, le premier qui dégaine emporte la manche</li>
-            <li><strong>Défi</strong> — 10 mêmes plaques pour tout le monde, classement partagé</li>
-            <li><strong>Sur le vif</strong> — tu vois une plaque IRL, tu la rentres, tu la craques</li>
-          </ul>
-        </div>
-      </div>
-
-      <button
-        onClick={onClose}
-        className="w-full mt-5 bg-stone-900 text-white p-3 rounded-2xl font-medium hover:bg-stone-800"
+// Tient sur un écran sans défiler (375×667 comme 1280×800) : l'essentiel, ~70 mots
+const RulesModal = ({ onClose }) => {
+  const touch = isTouchDevice();
+  const code = "bg-stone-200 px-1 rounded font-mono";
+  return (
+    <ModalBackdrop onClose={onClose}>
+      <div
+        onClick={e => e.stopPropagation()}
+        className="rules-box bg-gradient-cream max-w-md w-full rounded-3xl p-5 shadow-2xl border-4 border-stone-900 max-h-[90vh] overflow-y-auto"
       >
-        Que la partie commence
-      </button>
-    </div>
-  </ModalBackdrop>
-);
+        <div className="flex justify-between items-center">
+          <div className="text-xs tracking-[0.3em] text-stone-700">📖 LES RÈGLES</div>
+          <button onClick={onClose} aria-label="Fermer" className="text-stone-700 hover:text-stone-900 text-xl leading-none min-w-[44px] min-h-[44px] -mr-3">✕</button>
+        </div>
+
+        <h2 className="font-display text-3xl text-stone-900 text-center leading-none mb-3">COMMENT ÇA MARCHE ?</h2>
+
+        <ul className="space-y-2.5 text-sm text-stone-800 leading-snug">
+          <li>🛣️ Sur <code className={code}>EW-143-WS</code>, trouve deux célébrités : une pour <code className={code}>EW</code> (<em>Emma Watson</em>), une pour <code className={code}>WS</code> (<em>William Saurin</em>).</li>
+          <li>⛓️ <strong>Chasles</strong> : si les lettres du milieu sont égales (W = W), une seule suffit pour <code className={code}>ES</code> (<em>Élina Svitolina</em>).</li>
+          <li>💰 <strong>10 pts</strong>, +5 par Chasles, +5 si le thème est respecté, ×1,5 à ×3 en série 🔥</li>
+          <li>⚖️ Claude arbitre ; tu peux contester son verdict.</li>
+          <li>{touch
+            ? <>🎮 Tape ou dicte 🎤, puis <strong>En avant !</strong> ⏸ met en pause.</>
+            : <>🎮 <strong>Entrée</strong> pour valider, <strong>Échap</strong> pour la pause.</>}
+          </li>
+        </ul>
+
+        <button
+          onClick={onClose}
+          className="w-full mt-4 bg-stone-900 text-white p-3 rounded-2xl font-medium hover:bg-stone-800"
+        >
+          Que la partie commence
+        </button>
+      </div>
+    </ModalBackdrop>
+  );
+};
 
 // ============================================================
 // MODALE — INSTALLER SUR L'ÉCRAN D'ACCUEIL
@@ -822,6 +798,53 @@ const ContestModal = ({ answer, winner, onCancel, onConfirm }) => (
 
 const PORTAL_URL = "https://fullgaz.kernse.fr";
 
+// Adresse du jeu (sans paramètres), utilisée dans les liens partagés
+const gameUrl = () => `${window.location.origin}${window.location.pathname}`;
+
+// Paramètres d'URL lus une seule fois au chargement, puis retirés de la barre d'adresse
+// (un F5 ou un retour à l'accueil ne les rejoue pas) :
+//   ?salon=CODE            → rejoindre ce salon multi
+//   ?pseudo=Nom            → pseudo par défaut (transmis par le portail)
+//   ?defi=Nom&s=score      → « Nom te défie » sur l'accueil (mode chrono)
+//   ?defi=Nom&s=score&code=1234C → idem, sur le même défi partagé
+let urlParams = null; // mémorisé : le mode strict de React appelle l'initialiseur deux fois
+const readUrlParams = () => {
+  if (urlParams) return urlParams;
+  const out = urlParams = { salon: "", challenge: null };
+  try {
+    const q = new URLSearchParams(window.location.search);
+    const pseudo = (q.get("pseudo") || "").trim().slice(0, 16);
+    if (pseudo) {
+      // Ne remplace pas un pseudo déjà choisi sur cet appareil
+      if (!localStorage.getItem("multi:pseudo")) localStorage.setItem("multi:pseudo", pseudo);
+      if (!localStorage.getItem("challenge:pseudo")) localStorage.setItem("challenge:pseudo", pseudo);
+    }
+    const salon = (q.get("salon") || "").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
+    if (salon.length === 4) out.salon = salon;
+    const from = (q.get("defi") || "").trim().slice(0, 16);
+    const score = parseInt(q.get("s"), 10);
+    if (from && Number.isFinite(score) && score >= 0) {
+      const code = (q.get("code") || "").toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 5);
+      out.challenge = { from, score, code: parseChallengeCode(code) ? code : "" };
+    }
+    ["salon", "pseudo", "defi", "s", "code"].forEach(k => q.delete(k));
+    const rest = q.toString();
+    window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : "") + window.location.hash);
+  } catch (e) {}
+  return out;
+};
+
+// Lien de défi : rouvre le jeu avec « Nom te défie : bats score »
+const challengeUrl = (from, score, code) => {
+  const q = new URLSearchParams({ defi: from || "Un pote", s: String(score) });
+  if (code) q.set("code", code);
+  return `${gameUrl()}?${q.toString()}`;
+};
+
+const savedPseudo = () => {
+  try { return localStorage.getItem("challenge:pseudo") || localStorage.getItem("multi:pseudo") || ""; } catch (e) { return ""; }
+};
+
 // Le compte Full Gaz (cookie sur .kernse.fr) ne peut pas être lu depuis ce domaine :
 // on renvoie vers le portail et on gère ici seulement le pseudo local du jeu.
 const AccountModal = ({ onClose }) => {
@@ -879,7 +902,7 @@ const HOME_MODES = [
   { id: "vif", title: "SUR LE VIF", subtitle: "Tu vois une plaque ? Rentre-la, craque-la", emoji: "👀", bg: "bg-emerald-700", ring: "text-emerald-700" },
 ];
 
-const Home = ({ onSelectMode }) => {
+const Home = ({ onSelectMode, challenge, onAcceptChallenge }) => {
   const [examplePlate, setExamplePlate] = useState("DA-149-PY");
   const [showChasles, setShowChasles] = useState(false);
   const [showRules, setShowRules] = useState(false);
@@ -929,6 +952,22 @@ const Home = ({ onSelectMode }) => {
             </button>
           </div>
         </div>
+
+        {/* Défi reçu par lien (?defi=Nom&s=score) */}
+        {challenge && (
+          <div className="mt-3 w-full max-w-md mx-auto bg-white/85 border-2 border-stone-900 rounded-2xl p-3 flex items-center gap-3">
+            <div className="flex-1 min-w-0 text-sm text-stone-900 leading-snug">
+              🏁 <strong className="break-words">{challenge.from}</strong> te défie : bats <strong>{challenge.score} pts</strong>
+              <span className="block text-xs text-stone-600">{challenge.code ? `Défi #${challenge.code}` : "Solo · chrono, 90 secondes"}</span>
+            </div>
+            <button
+              onClick={onAcceptChallenge}
+              className="btn-chrono shrink-0 min-h-[44px] px-4 rounded-xl text-white font-medium text-sm"
+            >
+              Relever le défi
+            </button>
+          </div>
+        )}
 
         {/* Mobile : une colonne · Ordinateur : deux colonnes sur un seul écran */}
         <div className="mt-4 flex flex-col items-center gap-6 lg:grid lg:grid-cols-[1fr_1fr] lg:gap-16 lg:items-center lg:mt-2">
@@ -1341,6 +1380,50 @@ const SoloZen = ({ onBack }) => {
 };
 
 // ============================================================
+// PAUSE & FAUSSES NOTES DE COURS (discrétion en amphi)
+// ============================================================
+
+// Une autre boîte (règles, contestation…) est ouverte : Échap la ferme d'abord.
+const otherModalOpen = () => !!document.querySelector('[aria-modal="true"]:not([data-pause])');
+
+// Plein écran sobre : un cours de stats, rien qui ressemble à un jeu. Échap ou un toucher pour revenir.
+const FakeNotes = ({ onClose }) => (
+  <div
+    onClick={onClose}
+    data-pause
+    aria-modal="true"
+    role="dialog"
+    aria-label="Notes de cours"
+    className="fixed inset-0 z-[60] bg-white text-stone-800 overflow-hidden p-6 sm:p-10 font-sans cursor-default"
+  >
+    <div className="max-w-2xl mx-auto text-[15px] leading-relaxed">
+      <div className="flex justify-between text-xs text-stone-500 border-b border-stone-300 pb-2 mb-4">
+        <span>L2 — Statistiques — CM n°5</span><span>Notes de cours</span>
+      </div>
+      <h3 className="font-semibold text-lg mb-2">Chapitre 3 — Estimation ponctuelle</h3>
+      <p className="mb-3">3.1 Un estimateur est une fonction de l'échantillon. Il est sans biais si son espérance est égale au paramètre estimé.</p>
+      <p className="mb-3">Moyenne empirique : estimateur sans biais de l'espérance. La variance empirique corrigée (division par n − 1) est sans biais.</p>
+      <h3 className="font-semibold text-lg mb-2">3.2 Convergence</h3>
+      <p className="mb-3">Loi des grands nombres : la moyenne empirique converge vers l'espérance. Théorème central limite : approximation par la loi normale pour n grand.</p>
+      <p className="mb-3">À revoir pour le TD : exercices 2 à 5, intervalles de confiance à 95 %, lecture de la table de la loi normale.</p>
+    </div>
+  </div>
+);
+
+// Boîte Pause : la plaque est masquée (pas de triche pendant la pause)
+const PauseOverlay = ({ onResume, onHome }) => (
+  <div data-pause role="dialog" aria-modal="true" aria-label="Pause" className="fixed inset-0 z-50 bg-stone-900 flex items-center justify-center p-4 anim-fade-in">
+    <div className="bg-gradient-cream max-w-xs w-full rounded-3xl p-6 border-4 border-stone-900 shadow-2xl flex flex-col gap-3 text-center">
+      <div className="text-xs tracking-[0.3em] text-stone-600">CHRONO ARRÊTÉ</div>
+      <h2 className="font-display text-5xl text-stone-900 leading-none mb-2">PAUSE</h2>
+      <button autoFocus onClick={onResume} className="min-h-[48px] p-3 bg-stone-900 text-white rounded-2xl font-medium">Reprendre</button>
+      <button onClick={onHome} className="min-h-[48px] p-3 bg-stone-200 text-stone-900 rounded-2xl font-medium">Accueil</button>
+      <p className="hidden sm:block text-xs text-stone-600 mt-1">Échap : notes de cours</p>
+    </div>
+  </div>
+);
+
+// ============================================================
 // MODE SOLO CHRONO
 // ============================================================
 
@@ -1361,15 +1444,58 @@ const SoloChrono = ({ onBack }) => {
   const [stats, setStats] = useState({ people: {}, bestStreak: 0, chaslesCount: 0 });
   const [chronoHistory, setChronoHistory] = useState([]); // recap plaque par plaque
   const [previewPlate] = useState(() => randomPlate("normal")); // stable : ne pas re-tirer à chaque rendu
+  const [paused, setPaused] = useState(false);
+  const [notes, setNotes] = useState(false); // fausses notes de cours plein écran
+  const [shared, setShared] = useState(false);
   const inputRef = useRef(null);
   useFeedbackHaptics(feedback);
+
+  const pause = useCallback(() => {
+    setPaused(true);
+    inputRef.current?.blur(); // range le clavier du téléphone
+  }, []);
+  const resume = () => {
+    setPaused(false);
+    setNotes(false);
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  // Échap : pause → fausses notes de cours → retour à la pause. Une boîte ouverte passe avant.
+  useEffect(() => {
+    if (phase !== "playing") return;
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      if (notes) { e.preventDefault(); setNotes(false); return; }
+      if (otherModalOpen()) return;
+      e.preventDefault();
+      if (paused) setNotes(true); else pause();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [phase, paused, notes, pause]);
+
+  // Onglet masqué (appel, autre appli, écran verrouillé) : pause automatique
+  useEffect(() => {
+    if (phase !== "playing") return;
+    const onVis = () => { if (document.hidden) pause(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [phase, pause]);
+
+  // Titre d'onglet neutre pendant les fausses notes
+  useEffect(() => {
+    if (!notes) return;
+    const prev = document.title;
+    document.title = "CM5 — Estimation ponctuelle";
+    return () => { document.title = prev; };
+  }, [notes]);
 
   useEffect(() => {
     try { const v = localStorage.getItem("chrono:best"); if (v) setBestScore(parseInt(v)); } catch (e) {}
   }, []);
 
   useEffect(() => {
-    if (phase !== "playing") return;
+    if (phase !== "playing" || paused) return; // chrono gelé pendant la pause
     if (timeLeft <= 0) {
       setPhase("done");
       playSound("time_up");
@@ -1383,9 +1509,11 @@ const SoloChrono = ({ onBack }) => {
     if (timeLeft <= 5) playSound("tick", 0.7); // dernières secondes
     const t = setTimeout(() => setTimeLeft(s => s - 1), 1000);
     return () => clearTimeout(t);
-  }, [timeLeft, phase, score, bestScore]);
+  }, [timeLeft, phase, paused, score, bestScore]);
 
   const start = () => {
+    setPaused(false);
+    setNotes(false);
     setPhase("playing");
     setTimeLeft(DURATION);
     setPlate(randomPlate(difficulty));
@@ -1405,7 +1533,7 @@ const SoloChrono = ({ onBack }) => {
   };
 
   const handleSubmit = async () => {
-    if (!answer.trim()) return;
+    if (!answer.trim() || paused) return;
     const result = validateAnswer(answer, plate);
     if (!result.valid) {
       setFeedback({ valid: false, reason: result.reason });
@@ -1486,6 +1614,19 @@ const SoloChrono = ({ onBack }) => {
     setAnswer("");
     setFeedback(null);
     inputRef.current?.focus();
+  };
+
+  // Défi chrono : le lien porte le score de CETTE partie, et rouvre le mode chrono
+  const shareChrono = async () => {
+    const text = `⏱️ Le jeu des plaques : ${score} pts en 90 secondes. Bats-moi ! ${challengeUrl(savedPseudo(), score)}`;
+    try {
+      if (navigator.share) await navigator.share({ text });
+      else {
+        await navigator.clipboard.writeText(text);
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+      }
+    } catch (e) { /* partage annulé */ }
   };
 
   const pct = (timeLeft / DURATION) * 100;
@@ -1614,6 +1755,12 @@ const SoloChrono = ({ onBack }) => {
             </details>
           )}
 
+          {score > 0 && (
+            <button onClick={shareChrono} className="w-full p-3 bg-white/80 border-2 border-stone-900 rounded-2xl font-medium text-stone-900">
+              {shared ? "✓ Lien copié" : "🏁 Défier un pote"}
+            </button>
+          )}
+
           <div className="flex gap-2 w-full">
             <button onClick={onBack} className="flex-1 p-4 bg-stone-200 rounded-2xl font-medium">Menu</button>
             <button onClick={start} className="flex-1 p-4 bg-stone-900 text-white rounded-2xl font-medium">Rejouer</button>
@@ -1626,8 +1773,16 @@ const SoloChrono = ({ onBack }) => {
   return (
     <div className="min-h-screen bg-gradient-cream p-4 flex flex-col">
       <div className="w-full max-w-md mx-auto flex flex-col gap-4 flex-1">
+        {paused && !notes && <PauseOverlay onResume={resume} onHome={onBack} />}
+        {notes && <FakeNotes onClose={() => setNotes(false)} />}
         <header className="flex items-center justify-between">
-          <button onClick={onBack} className="text-stone-700 text-sm">← Quitter</button>
+          <button
+            onClick={pause}
+            aria-label="Pause"
+            className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-full bg-white/70 border-2 border-stone-900 text-stone-900 text-lg"
+          >
+            ⏸
+          </button>
           <div className="text-center">
             <div className="font-display text-xs tracking-[0.25em] text-stone-600">SCORE</div>
             <div className="mt-0.5 flex items-center justify-center">
@@ -1707,10 +1862,10 @@ const SoloChrono = ({ onBack }) => {
 // MODE MULTI SALON
 // ============================================================
 
-const MultiRoom = ({ onBack }) => {
+const MultiRoom = ({ onBack, initialCode = "" }) => {
   const [phase, setPhase] = useState("lobby");
   const [roomCode, setRoomCode] = useState("");
-  const [inputCode, setInputCode] = useState("");
+  const [inputCode, setInputCode] = useState(initialCode);
   const [pseudo, setPseudo] = useState("");
   const [playerId, setPlayerId] = useState("");
   const [room, setRoom] = useState(null);
@@ -1724,16 +1879,22 @@ const MultiRoom = ({ onBack }) => {
   const [copied, setCopied] = useState(false);
   const pollRef = useRef(null);
   const resolvingRef = useRef(false);
+  const autoJoinRef = useRef(false); // une seule tentative (le mode strict rejoue les effets)
   useFeedbackHaptics(feedback);
 
-  // Reprise de session après F5
+  // Reprise de session après F5, ou arrivée par un lien ?salon=CODE
   useEffect(() => {
     try {
       const v = localStorage.getItem("multi:pseudo");
       if (v) setPseudo(v);
       const sess = localStorage.getItem("multi:session");
+      const { code, playerId: pid, pseudo: sp } = sess ? JSON.parse(sess) : {};
+      if (initialCode && initialCode !== code) {
+        // Lien d'invitation vers un autre salon : on le rejoint directement si le pseudo est connu
+        if (v && !autoJoinRef.current) { autoJoinRef.current = true; joinRoom(initialCode, v); }
+        return;
+      }
       if (sess) {
-        const { code, playerId: pid, pseudo: sp } = JSON.parse(sess);
         if (code && pid) {
           // Vérifie que le salon existe encore et que le joueur est reconnu
           roomsAPI.join(code, sp || v || "Joueur", pid)
@@ -1771,7 +1932,7 @@ const MultiRoom = ({ onBack }) => {
   };
 
   const copyRoomCode = () => {
-    const url = `${window.location.origin}?salon=${roomCode}`;
+    const url = `${gameUrl()}?salon=${roomCode}`;
     const txt = `Rejoins mon salon Le Jeu des Plaques : code ${roomCode} — ${url}`;
     navigator.clipboard.writeText(txt)
       .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); })
@@ -1832,17 +1993,17 @@ const MultiRoom = ({ onBack }) => {
     }
   };
 
-  const joinRoom = async () => {
-    if (!pseudo.trim()) { setError("Choisis un pseudo."); return; }
-    const code = inputCode.trim().toUpperCase();
+  const joinRoom = async (rawCode = inputCode, ps = pseudo) => {
+    if (!ps.trim()) { setError("Choisis un pseudo."); return; }
+    const code = rawCode.trim().toUpperCase();
     if (code.length !== 4) { setError("Le code fait 4 lettres."); return; }
     try {
-      const res = await roomsAPI.join(code, pseudo);
+      const res = await roomsAPI.join(code, ps);
       setPlayerId(res.playerId);
       setRoomCode(code);
       setRoom(res.room);
       setPhase("inroom");
-      saveSession(code, res.playerId, pseudo);
+      saveSession(code, res.playerId, ps);
       setError("");
     } catch (e) {
       setError(e.message?.includes("409") ? "Salon complet." : "Ce salon s'est évaporé dans l'éther.");
@@ -1996,7 +2157,7 @@ const MultiRoom = ({ onBack }) => {
               placeholder="ABCD"
               className="w-full p-3 rounded-xl border-2 border-stone-300 focus:border-stone-900 outline-none font-mono text-center text-2xl tracking-widest"
             />
-            <button onClick={joinRoom} className="w-full bg-stone-900 text-white p-3 rounded-xl font-medium">
+            <button onClick={() => joinRoom()} className="w-full bg-stone-900 text-white p-3 rounded-xl font-medium">
               Rejoindre la mêlée
             </button>
           </div>
@@ -2345,10 +2506,10 @@ const generateChallengeCode = (themeId) => {
   return digits + letter;
 };
 
-const ChallengeMode = ({ onBack }) => {
+const ChallengeMode = ({ onBack, initialCode = "" }) => {
   const [phase, setPhase] = useState("menu"); // menu | playing | done
   const [code, setCode] = useState("");
-  const [inputCode, setInputCode] = useState("");
+  const [inputCode, setInputCode] = useState(initialCode);
   const [pseudo, setPseudo] = useState("");
   const [plates, setPlates] = useState([]);
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -2366,6 +2527,9 @@ const ChallengeMode = ({ onBack }) => {
 
   useEffect(() => {
     try { const v = localStorage.getItem("challenge:pseudo"); if (v) setPseudo(v); } catch (e) {}
+    // Arrivée par un lien de défi : même parcours tout de suite si le pseudo est connu,
+    // sinon le code est pré-rempli et on demande le pseudo
+    if (initialCode && savedPseudo()) startChallenge(initialCode);
   }, []);
 
   const savePseudo = (p) => {
@@ -2470,7 +2634,7 @@ const ChallengeMode = ({ onBack }) => {
     } catch (e) { console.error("challenge score", e); }
   };
 
-  const shareText = `🏁 DÉFI INITIALES #${code} — j'ai marqué ${score} pts. Ose me défier.`;
+  const shareText = `🏁 Le jeu des plaques, défi #${code} : j'ai marqué ${score} pts. Bats-moi ! ${challengeUrl(pseudo, score, code)}`;
 
   const [shared, setShared] = useState(false);
   const copyShareText = async () => {
@@ -2990,17 +3154,32 @@ const SurLeVif = ({ onBack }) => {
 // ============================================================
 
 export default function App() {
-  const [mode, setMode] = useState(null);
+  const [params] = useState(readUrlParams);
+  const [mode, setMode] = useState(() => (params.salon ? "multi" : null));
+  const [challenge, setChallenge] = useState(params.challenge);
+  const [salon, setSalon] = useState(params.salon);
+  const [challengeCode, setChallengeCode] = useState("");
   // Musique très discrète, seulement en mode Zen (partie sans chrono).
   useEffect(() => { setMusic(mode === "zen" ? "music_calm" : null); }, [mode]);
 
   return (
     <>
-      {mode === null && <Home onSelectMode={setMode} />}
+      {mode === null && (
+        <Home
+          onSelectMode={setMode}
+          challenge={challenge}
+          onAcceptChallenge={() => {
+            // Même épreuve que celle du lien : le défi partagé s'il a un code, sinon le chrono
+            if (challenge.code) { setChallengeCode(challenge.code); setMode("defi"); }
+            else setMode("chrono");
+            setChallenge(null);
+          }}
+        />
+      )}
       {mode === "zen" && <SoloZen onBack={() => setMode(null)} />}
       {mode === "chrono" && <SoloChrono onBack={() => setMode(null)} />}
-      {mode === "multi" && <MultiRoom onBack={() => setMode(null)} />}
-      {mode === "defi" && <ChallengeMode onBack={() => setMode(null)} />}
+      {mode === "multi" && <MultiRoom initialCode={salon} onBack={() => { setSalon(""); setMode(null); }} />}
+      {mode === "defi" && <ChallengeMode initialCode={challengeCode} onBack={() => { setChallengeCode(""); setMode(null); }} />}
       {mode === "vif" && <SurLeVif onBack={() => setMode(null)} />}
     </>
   );
