@@ -210,15 +210,9 @@ const liveMatch = (answer, plate) => {
   };
 };
 
-// Petit retour haptique (mobile) — silencieux si non supporté
-const buzz = (pattern) => {
-  try { navigator.vibrate?.(pattern); } catch (e) { /* */ }
-};
-
-// Retour haptique automatique à chaque nouveau feedback
+// Son à chaque nouveau feedback (coupé par défaut). Pas de vibration : règle Full Gaz, on joue en amphi.
 const useFeedbackHaptics = (feedback) => {
   useEffect(() => {
-    if (feedback) buzz(feedback.valid ? 25 : [40, 60, 40]);
     if (feedback) playSound(feedback.valid ? "correct" : "wrong");
   }, [feedback]);
 };
