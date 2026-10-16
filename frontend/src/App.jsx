@@ -7,6 +7,9 @@ import {
   rooms as roomsAPI,
   challenges as challengesAPI,
 } from './api.js';
+import { whoAmI, signIn, signUp, signOut, syncGameData } from './fullgaz/fullgaz-account.js';
+import { mountPotes } from './fullgaz/fullgaz-potes.js';
+import { setMessagesTheme, mountMessagesButton, refreshMessages } from './fullgaz/fullgaz-messages.js';
 
 
 // ============================================================
@@ -415,7 +418,7 @@ const PlateHint = ({ plate, answer = "" }) => {
 // Fond de modale commun : Échap pour fermer, scroll de la page bloqué
 const ModalBackdrop = ({ onClose, children }) => {
   useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e) => { if (e.key === "Escape" && !fromMessages(e)) onClose(); };
     window.addEventListener("keydown", onKey);
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -845,18 +848,171 @@ const savedPseudo = () => {
   try { return localStorage.getItem("challenge:pseudo") || localStorage.getItem("multi:pseudo") || ""; } catch (e) { return ""; }
 };
 
-// Le compte Full Gaz (cookie sur .kernse.fr) ne peut pas être lu depuis ce domaine :
-// on renvoie vers le portail et on gère ici seulement le pseudo local du jeu.
-const AccountModal = ({ onClose }) => {
-  const [pseudo, setPseudo] = useState(() => {
-    try { return localStorage.getItem("multi:pseudo") || localStorage.getItem("challenge:pseudo") || ""; } catch (e) { return ""; }
+// ============================================================
+// COMPTE COMMUN FULL GAZ
+// ============================================================
+// La session est un cookie sur .kernse.fr : le compte ne marche que sur plaques.kernse.fr (et en local).
+// Sur lejeudesplaques.fr, on garde le pseudo local et on propose de jouer sur plaques.kernse.fr.
+const KERNSE_URL = "https://plaques.kernse.fr";
+const GAME_ID = "initiales"; // identifiant connu du service de comptes et du portail
+const ACCOUNT_ON = (() => {
+  try { return /(^|\.)kernse\.fr$/.test(location.hostname) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname); } catch (e) { return false; }
+})();
+
+// Les touches du jeu ignorent ce qui vient du panneau Messages (Shadow DOM)
+const fromMessages = (e) => !!e.composedPath?.().some(n => n.hasAttribute?.("data-fullgaz-messages"));
+
+// Identité du compte partagée par tout le jeu : undefined = pas encore su, null = invité, { name, friends }
+const account = { me: undefined, subs: new Set() };
+const setAccount = (me) => { account.me = me; account.subs.forEach(f => f(me)); };
+const useAccount = () => {
+  const [me, setMe] = useState(account.me);
+  useEffect(() => { account.subs.add(setMe); setMe(account.me); return () => { account.subs.delete(setMe); }; }, []);
+  return me;
+};
+
+// Sauvegarde sur le compte : { best } = record du solo chrono (clé locale chrono:best). Fusion : garder le meilleur.
+const localBest = () => { try { return parseInt(localStorage.getItem("chrono:best"), 10) || 0; } catch (e) { return 0; } };
+const mergeData = (r, l) => ({ ...(r && typeof r === "object" ? r : {}), best: Math.max(+r?.best || 0, +l?.best || 0) });
+const syncRecord = async () => {
+  if (!ACCOUNT_ON) return null;
+  try {
+    const res = await syncGameData(GAME_ID, { best: localBest() }, mergeData);
+    if (res.signedIn && (res.data?.best || 0) > localBest()) {
+      try { localStorage.setItem("chrono:best", String(res.data.best)); } catch (e) {}
+    }
+    window.dispatchEvent(new Event("fullgaz:record"));
+    potes?.refresh();
+    return res;
+  } catch (e) { return null; }
+};
+
+// Bandeau « Tes potes » et bouton Messages : montés une seule fois, puis déplacés dans l'accueil à chaque affichage
+// (les modules gardent des minuteries et des écouteurs : on ne les remonte pas à chaque retour à l'accueil).
+const FG_INK = "#1E2740";
+let potes = null, potesBox = null, msgBtnBox = null;
+const potesHandlers = { onChallenge: () => {}, onSignIn: () => {} };
+const getPotesBox = () => {
+  if (!potesBox) {
+    potesBox = document.createElement("div");
+    potes = mountPotes(potesBox, {
+      game: GAME_ID, name: "Le jeu des plaques", url: gameUrl(), rowLabel: "au chrono",
+      row: (d) => (d?.best ? { v: `${d.best} pts`, k: -d.best } : null),
+      myScore: () => (localBest() ? `${localBest()} pts` : null),
+      onChallenge: (ch) => potesHandlers.onChallenge(ch),
+      onSignIn: () => potesHandlers.onSignIn(),
+      theme: { accent: "#FFC93C", accentInk: FG_INK, bg: FG_INK, text: "#FDF8EC", ink: FG_INK, radius: "16px", font: "Overpass, Inter, system-ui, sans-serif" },
+    });
+  }
+  return potesBox;
+};
+const getMsgBtnBox = () => {
+  if (!msgBtnBox) {
+    msgBtnBox = document.createElement("div");
+    msgBtnBox.className = "flex justify-center";
+    mountMessagesButton(msgBtnBox, {
+      className: "min-h-[44px] inline-flex items-center px-4 rounded-full text-sm bg-white/70 text-stone-900 border-2 border-stone-900 hover:bg-white tracking-wider",
+    });
+  }
+  return msgBtnBox;
+};
+if (ACCOUNT_ON) {
+  setMessagesTheme({
+    bg: FG_INK, surface: "#2E3A57", line: "#4A5A80", shadow: "#F26B1D", accent: "#FFC93C", accentInk: FG_INK,
+    text: "#FDF8EC", muted: "#D9C59C", ink: FG_INK, scrim: "rgb(30 39 64 / .6)", font: "Overpass, Inter, system-ui, sans-serif",
   });
+}
+// Après une connexion / déconnexion : tout se remet à jour
+const accountChanged = (me) => {
+  setAccount(me);
+  refreshMessages();
+  if (me) syncRecord(); else potes?.refresh();
+};
+
+const fieldCls = "w-full p-3 rounded-xl border-2 border-stone-300 focus:border-stone-900 outline-none bg-white";
+
+// Pseudo local du jeu (salons, défis partagés) : utile avec ou sans compte
+const LocalPseudo = () => {
+  const [pseudo, setPseudo] = useState(savedPseudo);
   const save = (p) => {
     setPseudo(p);
     try {
       localStorage.setItem("multi:pseudo", p);
       localStorage.setItem("challenge:pseudo", p);
     } catch (e) {}
+  };
+  return (
+    <div className="bg-white/80 p-5 rounded-2xl space-y-3">
+      <label htmlFor="account-pseudo" className="block text-xs text-stone-600 uppercase tracking-wider">Ton pseudo dans ce jeu</label>
+      <input
+        id="account-pseudo"
+        value={pseudo}
+        onChange={e => save(e.target.value.slice(0, 16))}
+        placeholder="Eugène"
+        className={fieldCls}
+      />
+      <p className="text-xs text-stone-600">Enregistré sur cet appareil, utilisé pour les salons et les défis.</p>
+    </div>
+  );
+};
+
+const AccountForm = () => {
+  const [signUpMode, setSignUpMode] = useState(false);
+  const [name, setName] = useState(savedPseudo);
+  const [pw, setPw] = useState("");
+  const [pw2, setPw2] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async (e) => {
+    e.preventDefault();
+    setErr("");
+    if (signUpMode && pw !== pw2) { setErr("Les deux mots de passe ne correspondent pas."); return; }
+    setBusy(true);
+    try {
+      const me = await (signUpMode ? signUp(name.trim(), pw) : signIn(name.trim(), pw));
+      try {
+        localStorage.setItem("multi:pseudo", me.name);
+        localStorage.setItem("challenge:pseudo", me.name);
+      } catch (e2) {}
+      accountChanged(me);
+    } catch (e2) {
+      setErr(e2?.message || "Serveur injoignable. Vérifie ta connexion.");
+    } finally { setBusy(false); }
+  };
+  const tab = (up) => `flex-1 min-h-[44px] rounded-xl text-sm font-medium ${signUpMode === up ? "bg-stone-900 text-white" : "bg-stone-200 text-stone-900"}`;
+  return (
+    <form onSubmit={submit} className="bg-white/80 p-5 rounded-2xl space-y-3">
+      <div className="flex gap-2" role="group" aria-label="Connexion ou création de compte">
+        <button type="button" aria-pressed={!signUpMode} onClick={() => { setSignUpMode(false); setErr(""); }} className={tab(false)}>Connexion</button>
+        <button type="button" aria-pressed={signUpMode} onClick={() => { setSignUpMode(true); setErr(""); }} className={tab(true)}>Créer un compte</button>
+      </div>
+      <label className="block text-xs text-stone-600 uppercase tracking-wider" htmlFor="fg-name">Pseudo</label>
+      <input id="fg-name" value={name} onChange={e => setName(e.target.value.slice(0, 14))} autoComplete="username" required className={fieldCls} />
+      <label className="block text-xs text-stone-600 uppercase tracking-wider" htmlFor="fg-pw">Mot de passe</label>
+      <input id="fg-pw" type="password" value={pw} onChange={e => setPw(e.target.value)} autoComplete={signUpMode ? "new-password" : "current-password"} required className={fieldCls} />
+      {signUpMode && (
+        <>
+          <label className="block text-xs text-stone-600 uppercase tracking-wider" htmlFor="fg-pw2">Confirme le mot de passe</label>
+          <input id="fg-pw2" type="password" value={pw2} onChange={e => setPw2(e.target.value)} autoComplete="new-password" required className={fieldCls} />
+        </>
+      )}
+      {err && <p role="alert" className="text-sm font-medium text-purple-700">{err}</p>}
+      <button type="submit" disabled={busy} className="w-full min-h-[48px] bg-stone-900 text-white rounded-2xl font-display text-xl tracking-wide hover:bg-stone-800 disabled:opacity-60">
+        {busy ? "…" : signUpMode ? "CRÉER MON COMPTE" : "ME CONNECTER"}
+      </button>
+      <p className="text-xs text-stone-600">Un seul compte pour tous les jeux Full Gaz : ton record chrono te suit partout.</p>
+    </form>
+  );
+};
+
+const AccountModal = ({ onClose }) => {
+  const me = useAccount();
+  const [busy, setBusy] = useState(false);
+  const logout = async () => {
+    setBusy(true);
+    await signOut();
+    setBusy(false);
+    accountChanged(null);
   };
   return (
     <ModalBackdrop onClose={onClose}>
@@ -868,26 +1024,39 @@ const AccountModal = ({ onClose }) => {
           <div className="text-xs tracking-[0.3em] text-stone-700">👤 MON COMPTE</div>
           <button onClick={onClose} aria-label="Fermer" className="text-stone-700 hover:text-stone-900 text-xl leading-none min-w-[44px] min-h-[44px] -mt-3 -mr-3">✕</button>
         </div>
-        <div className="bg-white/80 p-5 rounded-2xl space-y-3">
-          <label htmlFor="account-pseudo" className="block text-xs text-stone-600 uppercase tracking-wider">Ton pseudo dans ce jeu</label>
-          <input
-            id="account-pseudo"
-            value={pseudo}
-            onChange={e => save(e.target.value.slice(0, 16))}
-            placeholder="Eugène"
-            className="w-full p-3 rounded-xl border-2 border-stone-300 focus:border-stone-900 outline-none"
-          />
-          <p className="text-xs text-stone-600">Enregistré sur cet appareil, utilisé pour les salons et les défis.</p>
-        </div>
-        <p className="text-sm text-stone-700 mt-5 mb-3 leading-relaxed">
-          Ton compte Full Gaz (connexion, profil) se gère sur le portail Full Gaz.
-        </p>
-        <a
-          href={PORTAL_URL}
-          className="block w-full text-center bg-stone-900 text-white p-4 rounded-2xl font-display text-xl tracking-wide hover:bg-stone-800 transition-all shadow-lg"
-        >
-          OUVRIR FULL GAZ →
-        </a>
+
+        {!ACCOUNT_ON && (
+          <>
+            <LocalPseudo />
+            <p className="text-sm text-stone-700 mt-5 mb-3 leading-relaxed">
+              Le compte Full Gaz ne fonctionne pas sur cette adresse.
+            </p>
+            <a
+              href={KERNSE_URL}
+              className="block w-full text-center bg-stone-900 text-white p-4 rounded-2xl font-display text-xl tracking-wide hover:bg-stone-800 transition-all shadow-lg"
+            >
+              Jouer sur plaques.kernse.fr pour garder tes records partout →
+            </a>
+            <a href={PORTAL_URL} className="block text-center text-xs text-stone-700 underline decoration-dotted underline-offset-4 mt-4">Ouvrir le portail Full Gaz</a>
+          </>
+        )}
+
+        {ACCOUNT_ON && me === undefined && <p className="text-sm text-stone-700 p-5">Chargement…</p>}
+        {ACCOUNT_ON && me === null && <AccountForm />}
+        {ACCOUNT_ON && me && (
+          <div className="bg-white/80 p-5 rounded-2xl space-y-3">
+            <div className="text-xs text-stone-600 uppercase tracking-wider">Connecté</div>
+            <div className="font-display text-4xl text-stone-900 leading-none break-words">{me.name}</div>
+            <p className="text-sm text-stone-700">
+              Record chrono : <strong>{localBest()} pts</strong> · {(me.friends || []).length} pote{(me.friends || []).length > 1 ? "s" : ""}
+            </p>
+            <button onClick={logout} disabled={busy} className="w-full min-h-[48px] bg-stone-200 text-stone-900 rounded-2xl font-medium hover:bg-stone-300 disabled:opacity-60">
+              Se déconnecter
+            </button>
+            <a href={`${PORTAL_URL}/#amis`} className="block text-center text-xs text-stone-700 underline decoration-dotted underline-offset-4">Amis et profil sur Full Gaz</a>
+          </div>
+        )}
+        {ACCOUNT_ON && <div className="mt-4"><LocalPseudo key={me?.name || ""} /></div>}
       </div>
     </ModalBackdrop>
   );
@@ -909,6 +1078,19 @@ const Home = ({ onSelectMode, challenge, onAcceptChallenge }) => {
   const [showInstall, setShowInstall] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
   const soundOn = useSoundOn();
+  const me = useAccount();
+  const potesRef = useRef(null);
+  const msgRef = useRef(null);
+
+  // Bandeau potes + bouton Messages (compte Full Gaz, seulement sur kernse.fr / en local)
+  useEffect(() => {
+    if (!ACCOUNT_ON) return;
+    potesHandlers.onChallenge = () => onSelectMode("chrono");
+    potesHandlers.onSignIn = () => setShowAccount(true);
+    potesRef.current?.append(getPotesBox());
+    msgRef.current?.append(getMsgBtnBox());
+    potes?.refresh();
+  }, [onSelectMode]);
 
   useEffect(() => {
     const interval = setInterval(() => setExamplePlate(randomPlate()), 3000);
@@ -948,7 +1130,7 @@ const Home = ({ onSelectMode, challenge, onAcceptChallenge }) => {
               onClick={() => setShowAccount(true)}
               className="min-h-[44px] inline-flex items-center px-4 rounded-full text-sm bg-white/70 text-stone-900 border-2 border-stone-900 hover:bg-white tracking-wider"
             >
-              👤 Mon compte
+              <span className="truncate max-w-[9rem]">👤 {ACCOUNT_ON && me ? me.name : "Mon compte"}</span>
             </button>
           </div>
         </div>
@@ -1009,8 +1191,9 @@ const Home = ({ onSelectMode, challenge, onAcceptChallenge }) => {
             </div>
           </div>
 
-          {/* Colonne droite : modes de jeu = panneaux de sortie */}
-          <nav aria-label="Modes de jeu" className="w-full flex flex-col gap-5 lg:gap-4 mt-2 lg:mt-0">
+          {/* Colonne droite : modes de jeu = panneaux de sortie, puis potes et messages */}
+          <div className="w-full flex flex-col gap-5 lg:gap-4 mt-2 lg:mt-0">
+          <nav aria-label="Modes de jeu" className="w-full flex flex-col gap-5 lg:gap-4">
             {HOME_MODES.map((m, i) => (
               <button
                 key={m.id}
@@ -1029,6 +1212,13 @@ const Home = ({ onSelectMode, challenge, onAcceptChallenge }) => {
               </button>
             ))}
           </nav>
+          {ACCOUNT_ON && (
+            <>
+              <div ref={potesRef} className="w-full" />
+              <div ref={msgRef} />
+            </>
+          )}
+          </div>
         </div>
 
         {/* Liens d'aide (mobile) */}
@@ -1464,7 +1654,7 @@ const SoloChrono = ({ onBack }) => {
   useEffect(() => {
     if (phase !== "playing") return;
     const onKey = (e) => {
-      if (e.key !== "Escape") return;
+      if (e.key !== "Escape" || fromMessages(e)) return;
       if (notes) { e.preventDefault(); setNotes(false); return; }
       if (otherModalOpen()) return;
       e.preventDefault();
@@ -1492,6 +1682,10 @@ const SoloChrono = ({ onBack }) => {
 
   useEffect(() => {
     try { const v = localStorage.getItem("chrono:best"); if (v) setBestScore(parseInt(v)); } catch (e) {}
+    // Record récupéré du compte Full Gaz (autre appareil)
+    const onRecord = () => setBestScore(b => Math.max(b, localBest()));
+    window.addEventListener("fullgaz:record", onRecord);
+    return () => window.removeEventListener("fullgaz:record", onRecord);
   }, []);
 
   useEffect(() => {
@@ -1504,6 +1698,7 @@ const SoloChrono = ({ onBack }) => {
         setBestScore(score);
         try { localStorage.setItem("chrono:best", String(score)); } catch (e) {}
       }
+      syncRecord(); // compte Full Gaz : record gardé partout
       return;
     }
     if (timeLeft <= 5) playSound("tick", 0.7); // dernières secondes
@@ -3159,6 +3354,11 @@ export default function App() {
   const [challenge, setChallenge] = useState(params.challenge);
   const [salon, setSalon] = useState(params.salon);
   const [challengeCode, setChallengeCode] = useState("");
+  // Compte Full Gaz : identité puis synchro du record au démarrage
+  useEffect(() => {
+    if (!ACCOUNT_ON) return;
+    whoAmI().then(me => { setAccount(me); if (me) syncRecord(); }).catch(() => setAccount(null));
+  }, []);
   // Musique très discrète, seulement en mode Zen (partie sans chrono).
   useEffect(() => { setMusic(mode === "zen" ? "music_calm" : null); }, [mode]);
 
