@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { playSound, setMusic, setSoundOn, useSoundOn } from './sound.js';
 import { CHASLES_PORTRAIT } from './chasles.js';
+import { PAIR_TIERS, TIER_RATES } from './pairTiers.js';
 import {
   verifyCelebrities as apiVerify,
   askClaudeForAnswer as apiAskClaude,
@@ -16,38 +17,23 @@ import { setMessagesTheme, mountMessagesButton, refreshMessages } from './fullga
 // CONSTANTES & UTILITAIRES
 // ============================================================
 
-const LETTERS = "ABCDEFGHJKLMNPQRSTVWXYZ"; // SIV exclut I, O, U
-
-// Poids par difficulté : chill = ultra favorable, normal = équilibré, hardcore = uniforme
-const DIFFICULTY_WEIGHTS = {
-  chill: {
-    A: 8, B: 4, C: 8, D: 8, E: 6, F: 4, G: 4, H: 3,
-    J: 8, K: 1, L: 8, M: 8, N: 4, P: 8, Q: 0.5, R: 8,
-    S: 8, T: 5, V: 3, W: 1, X: 0.5, Y: 1, Z: 1,
-  },
-  normal: {
-    A: 6, B: 4, C: 6, D: 6, E: 5, F: 4, G: 4, H: 3,
-    J: 6, K: 2, L: 6, M: 6, N: 4, P: 6, Q: 1, R: 6,
-    S: 6, T: 4, V: 3, W: 2, X: 1, Y: 2, Z: 2,
-  },
-  hardcore: Object.fromEntries(LETTERS.split("").map(l => [l, 1])),
-};
-
+// Les plaques sont tirées par paires d'initiales selon leur rareté chez les célébrités (pairTiers.js) :
+// jamais de paire impossible, et la difficulté règle la part de paires communes, peu communes et très rares.
 const DIFFICULTIES = [
   { id: "chill", label: "Chill", emoji: "🌴" },
   { id: "normal", label: "Normal", emoji: "🎯" },
   { id: "hardcore", label: "Hardcore", emoji: "🔥" },
 ];
 
-const weightedRandomLetter = (rng = Math.random, difficulty = "normal") => {
-  const weights = DIFFICULTY_WEIGHTS[difficulty] || DIFFICULTY_WEIGHTS.normal;
-  const total = Object.values(weights).reduce((a, b) => a + b, 0);
-  let r = rng() * total;
-  for (const [letter, weight] of Object.entries(weights)) {
-    r -= weight;
-    if (r <= 0) return letter;
+const randomPair = (rng = Math.random, difficulty = "normal") => {
+  const rates = TIER_RATES[difficulty] || TIER_RATES.normal;
+  const total = Object.values(rates).reduce((a, b) => a + b, 0);
+  let r = rng() * total, tier = "commun";
+  for (const [t, w] of Object.entries(rates)) {
+    if (w > 0 && (r -= w) <= 0) { tier = t; break; }
   }
-  return "A";
+  const pairs = PAIR_TIERS[tier];
+  return pairs[Math.min(pairs.length - 1, Math.floor(rng() * pairs.length))];
 };
 
 // PRNG déterministe pour les défis partagés (mulberry32)
@@ -80,9 +66,9 @@ const removeAccents = (s) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
 const randomPlate = (difficulty = "normal", rng = Math.random) => {
-  const r = (n) => Array.from({ length: n }, () => weightedRandomLetter(rng, difficulty)).join("");
+  const first = randomPair(rng, difficulty);
   const digits = String(Math.floor(rng() * 999) + 1).padStart(3, "0");
-  return `${r(2)}-${digits}-${r(2)}`;
+  return `${first}-${digits}-${randomPair(rng, difficulty)}`;
 };
 
 // Multiplicateur de streak : x1 (0-2), x1.5 (3-5), x2 (6-9), x3 (10+)

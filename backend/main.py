@@ -225,19 +225,20 @@ def new_room_code() -> str:
         if code not in rooms:
             return code
 
+# Rareté des paires d'initiales (générée avec frontend/src/pairTiers.js) : même tirage que le jeu, difficulté « normal ».
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "pair_tiers.json"), encoding="utf-8") as _f:
+    PAIR_TIERS = json.load(_f)
+
+def random_pair(difficulty: str = "normal") -> str:
+    rates = PAIR_TIERS["rates"].get(difficulty, PAIR_TIERS["rates"]["normal"])
+    tiers = [t for t, w in rates.items() if w > 0]
+    tier = random.choices(tiers, weights=[rates[t] for t in tiers], k=1)[0]
+    return random.choice(PAIR_TIERS["tiers"][tier])
+
 def random_plate() -> str:
-    """Duplication minimale de la logique frontend pour générer une plaque côté serveur."""
-    weights = {
-        "A": 6, "B": 4, "C": 6, "D": 6, "E": 5, "F": 4, "G": 4, "H": 3,
-        "J": 6, "K": 2, "L": 6, "M": 6, "N": 4, "P": 6, "Q": 1, "R": 6,
-        "S": 6, "T": 4, "V": 3, "W": 2, "X": 1, "Y": 2, "Z": 2,
-    }
-    letters = list(weights.keys())
-    probs = list(weights.values())
-    def pick():
-        return random.choices(letters, weights=probs, k=1)[0]
+    """Même logique que le frontend : deux paires d'initiales tirées selon leur rareté."""
     digits = f"{random.randint(1, 999):03d}"
-    return f"{pick()}{pick()}-{digits}-{pick()}{pick()}"
+    return f"{random_pair()}-{digits}-{random_pair()}"
 
 def touch_player(room: dict, player_id: str):
     if player_id in room["players"]:
