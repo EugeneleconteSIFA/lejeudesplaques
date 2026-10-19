@@ -24,6 +24,7 @@ const MESSAGES = {
   'empty-message': 'Message vide.',
   'too-many-messages': 'Tu écris trop vite, souffle un peu.',
   'bad-subscription': 'Notifications impossibles sur ce navigateur.',
+  'not-unlocked': 'Pas encore débloqué : monte de niveau pour l\'avoir.',
 };
 
 export class FullGazError extends Error {
@@ -58,13 +59,32 @@ export async function whoAmI() {
   }
 }
 
+const REFERRER = 'fullgaz.parrain';
+
 export async function signIn(name, password) {
   await call('POST', 'login', { name, password });
+  try { localStorage.removeItem(REFERRER); } catch (e) { /* rien */ } // le parrainage ne vaut que pour un nouveau compte
+  flushEvents();
   return whoAmI();
 }
 
-export async function signUp(name, password) {
-  await call('POST', 'signup', { name, password });
+// Parrainage : un lien ?parrain=<pseudo> (portail ou jeu) est retenu sur l'appareil, puis envoyé à l'inscription.
+try {
+  const p = new URLSearchParams(location.search).get('parrain');
+  if (p) localStorage.setItem(REFERRER, p.trim().slice(0, 20));
+} catch (e) { /* pas de stockage : tant pis */ }
+export function pendingReferrer() { try { return localStorage.getItem(REFERRER); } catch (e) { return null; } }
+// Lien d'invitation d'un joueur (vers le portail par défaut).
+export function inviteLink(name, url = 'https://fullgaz.kernse.fr') {
+  return `${url.replace(/\/$/, '')}/?parrain=${encodeURIComponent(name)}`;
+}
+
+// consent (facultatif) : { notifs, data }, les cases du formulaire d'inscription du portail.
+export async function signUp(name, password, consent) {
+  const referrer = pendingReferrer();
+  await call('POST', 'signup', { name, password, ...(consent ? { consent } : {}), ...(referrer ? { referrer } : {}) });
+  try { localStorage.removeItem(REFERRER); } catch (e) { /* rien */ }
+  flushEvents();
   return whoAmI();
 }
 
@@ -151,6 +171,11 @@ export async function savePushSubscription(subscription) {
   await call('POST', 'push', { subscription });
 }
 
+// Consentements : { notifs, data } (whoAmI() renvoie consent, null tant que le joueur n'a pas répondu).
+export async function saveConsent(consent) {
+  return (await call('POST', 'fullgaz/consent', consent)).consent;
+}
+
 // --- Messagerie (commune à tous les jeux) ---
 
 // Conversations : { conversations: [{ with, last: { from, text, at }, unread }], unread }.
@@ -195,4 +220,59 @@ export async function notifyBeaten(game, players, key, before, label) {
     if (k == null || now >= k || (before != null && before < k)) continue;
     try { await call('POST', 'fullgaz/nudge', { name: p.name, game, beat: String(label).slice(0, 24) }); } catch (e) { /* limite ou hors ligne */ }
   }
+}
+
+// --- Le Gaz : progression globale Full Gaz (serveur : Base Farmer/server/gaz.mjs) ---
+// Le jeu signale des faits, le serveur applique le barème et les plafonds. Types :
+//   game_completed            { duration (s), mode, result }       à chaque partie finie
+//   daily_challenge_completed { no (numéro du défi du jour), result } quand le défi du jour est fini
+//   personal_record_updated   { old, new, better: 'higher'|'lower', unit } quand le joueur bat son record
+//   friend_challenge_completed { from (pseudo de l'ami), won }       quand une partie lancée par « Relever le défi » se termine
+// Sans compte ou hors ligne, les faits attendent sur l'appareil (7 jours au plus) et partent à la connexion.
+// Renvoie { gained, gaz } (Gaz gagnés par ce fait, profil à jour) ou null s'il attend.
+const QUEUE = 'fullgaz.gaz.queue';
+const readQueue = () => { try { return JSON.parse(localStorage.getItem(QUEUE)) || []; } catch (e) { return []; } };
+const writeQueue = (q) => { try { localStorage.setItem(QUEUE, JSON.stringify(q.slice(-100))); } catch (e) { /* stockage plein */ } };
+let flushing = null;
+// Réponse du serveur pour chaque fait envoyé : plusieurs faits signalés d'affilée peuvent partir dans le même envoi.
+const answered = new Map();
+let lastGaz = null;
+
+export async function reportEvent(game, type, payload = {}) {
+  const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  writeQueue([...readQueue(), { id, type, game, at: Date.now(), payload }]);
+  await flushEvents();
+  const mine = answered.get(id);
+  if (!mine) return null; // pas connecté ou hors ligne : le fait attend sur l'appareil
+  answered.delete(id);
+  return { gained: mine.gains.reduce((n, g) => n + g.gain, 0), gains: mine.gains, gaz: lastGaz };
+}
+
+// Envoie les faits en attente (appelé tout seul après une connexion). Renvoie la réponse du serveur, ou null.
+export function flushEvents() {
+  if (flushing) return flushing.then(() => flushEvents());
+  const week = Date.now() - 7 * 864e5;
+  const queue = readQueue().filter((e) => e.at > week);
+  if (!queue.length) return Promise.resolve(null);
+  flushing = call('POST', 'fullgaz/events', { events: queue.slice(0, 50) })
+    .then((res) => {
+      const sent = new Set(queue.slice(0, 50).map((e) => e.id));
+      writeQueue(readQueue().filter((e) => !sent.has(e.id)));
+      for (const r of res.results || []) answered.set(r.id, r);
+      lastGaz = res.gaz;
+      return res;
+    })
+    .catch(() => null) // pas connecté ou hors ligne : on garde la file
+    .finally(() => { flushing = null; });
+  return flushing;
+}
+
+// Profil Gaz : { total, level, name, rank, next, floor, streak, today, quests, unlocked, equip, log }.
+export async function gazProfile() {
+  return (await call('GET', 'fullgaz/gaz')).gaz;
+}
+
+// Équipe un titre, un badge, un cadre ou un thème débloqué : { title?, badge?, frame?, theme? } (null pour retirer).
+export async function equipGaz(choice) {
+  return (await call('POST', 'fullgaz/gaz/equip', choice)).gaz;
 }

@@ -7,7 +7,7 @@ import {
   rooms as roomsAPI,
   challenges as challengesAPI,
 } from './api.js';
-import { whoAmI, signIn, signUp, signOut, syncGameData } from './fullgaz/fullgaz-account.js';
+import { whoAmI, signIn, signUp, signOut, syncGameData, reportEvent } from './fullgaz/fullgaz-account.js';
 import { mountPotes } from './fullgaz/fullgaz-potes.js';
 import { setMessagesTheme, mountMessagesButton, refreshMessages } from './fullgaz/fullgaz-messages.js';
 
@@ -887,6 +887,30 @@ const syncRecord = async () => {
   } catch (e) { return null; }
 };
 
+// Le Gaz (progression Full Gaz) : faits de fin de partie, envoyés l'un après l'autre pour connaître le gain de chacun.
+// facts : [[type, payload], …]. Renvoie { gained, level } (level = nouveau niveau s'il vient d'être atteint) ou null.
+// Hors kernse.fr / local, rien n'est signalé. Jamais attendu avant d'afficher l'écran de fin.
+const reportGaz = async (facts) => {
+  if (!ACCOUNT_ON) return null;
+  let gained = 0, gaz = null;
+  for (const [type, payload] of facts) {
+    try {
+      const r = await reportEvent(GAME_ID, type, payload);
+      if (r) { gained += r.gained; gaz = r.gaz; }
+    } catch (e) { /* hors ligne : le fait attend sur l'appareil */ }
+  }
+  if (!gaz) return null;
+  return { gained, level: gaz.total - gained < gaz.floor ? gaz.level : null };
+};
+
+// Ligne « +N Gaz » de l'écran de fin (rien si 0 ou pas de réponse)
+const GazLine = ({ gaz }) => (gaz?.gained > 0 ? (
+  <div className="text-sm text-stone-700 text-center">
+    <span className="font-bold text-stone-900">+{gaz.gained} Gaz</span>
+    {gaz.level && <span> · Niveau {gaz.level} atteint !</span>}
+  </div>
+) : null);
+
 // Bandeau « Tes potes » et bouton Messages : montés une seule fois, puis déplacés dans l'accueil à chaque affichage
 // (les modules gardent des minuteries et des écouteurs : on ne les remonte pas à chaque retour à l'accueil).
 const FG_INK = "#1E2740";
@@ -1071,7 +1095,7 @@ const HOME_MODES = [
   { id: "vif", title: "SUR LE VIF", subtitle: "Tu vois une plaque ? Rentre-la, craque-la", emoji: "👀", bg: "bg-emerald-700", ring: "text-emerald-700" },
 ];
 
-const Home = ({ onSelectMode, challenge, onAcceptChallenge }) => {
+const Home = ({ onSelectMode, challenge, onAcceptChallenge, onPotesChallenge }) => {
   const [examplePlate, setExamplePlate] = useState("DA-149-PY");
   const [showChasles, setShowChasles] = useState(false);
   const [showRules, setShowRules] = useState(false);
@@ -1085,12 +1109,12 @@ const Home = ({ onSelectMode, challenge, onAcceptChallenge }) => {
   // Bandeau potes + bouton Messages (compte Full Gaz, seulement sur kernse.fr / en local)
   useEffect(() => {
     if (!ACCOUNT_ON) return;
-    potesHandlers.onChallenge = () => onSelectMode("chrono");
+    potesHandlers.onChallenge = (ch) => (onPotesChallenge ? onPotesChallenge(ch) : onSelectMode("chrono"));
     potesHandlers.onSignIn = () => setShowAccount(true);
     potesRef.current?.append(getPotesBox());
     msgRef.current?.append(getMsgBtnBox());
     potes?.refresh();
-  }, [onSelectMode]);
+  }, [onSelectMode, onPotesChallenge]);
 
   useEffect(() => {
     const interval = setInterval(() => setExamplePlate(randomPlate()), 3000);
@@ -1617,7 +1641,7 @@ const PauseOverlay = ({ onResume, onHome }) => (
 // MODE SOLO CHRONO
 // ============================================================
 
-const SoloChrono = ({ onBack }) => {
+const SoloChrono = ({ onBack, friend = null }) => {
   const DURATION = 90;
   const [difficulty, setDifficulty] = useState("normal");
   const [phase, setPhase] = useState("ready");
@@ -1637,6 +1661,8 @@ const SoloChrono = ({ onBack }) => {
   const [paused, setPaused] = useState(false);
   const [notes, setNotes] = useState(false); // fausses notes de cours plein écran
   const [shared, setShared] = useState(false);
+  const [gaz, setGaz] = useState(null); // « +N Gaz » de la dernière partie
+  const friendRef = useRef(friend); // défi d'un pote : compte pour la première partie lancée
   const inputRef = useRef(null);
   useFeedbackHaptics(feedback);
 
@@ -1693,6 +1719,13 @@ const SoloChrono = ({ onBack }) => {
     if (timeLeft <= 0) {
       setPhase("done");
       playSound("time_up");
+      // Le Gaz : partie finie (le chrono ne tourne pas en pause : 90 s réellement jouées), record, défi d'un pote
+      const facts = [["game_completed", { duration: DURATION, mode: "chrono", result: score }]];
+      if (score > bestScore) facts.push(["personal_record_updated", { old: bestScore || null, new: score, better: "higher", unit: "pts" }]);
+      const fr = friendRef.current;
+      friendRef.current = null;
+      if (fr) { const target = parseInt(fr.score, 10); facts.push(["friend_challenge_completed", { from: fr.from, won: Number.isFinite(target) && score > target }]); }
+      reportGaz(facts).then(setGaz);
       if (score > bestScore) {
         setTimeout(() => playSound("record"), 700);
         setBestScore(score);
@@ -1709,6 +1742,7 @@ const SoloChrono = ({ onBack }) => {
   const start = () => {
     setPaused(false);
     setNotes(false);
+    setGaz(null);
     setPhase("playing");
     setTimeLeft(DURATION);
     setPlate(randomPlate(difficulty));
@@ -1914,6 +1948,8 @@ const SoloChrono = ({ onBack }) => {
               {score > 0 && ` · à ${bestScore - score} pts`}
             </div>
           )}
+
+          <GazLine gaz={gaz} />
 
           {chronoHistory.length > 0 && (
             <details open className="bg-white/60 rounded-2xl p-3 text-xs w-full">
@@ -2701,7 +2737,7 @@ const generateChallengeCode = (themeId) => {
   return digits + letter;
 };
 
-const ChallengeMode = ({ onBack, initialCode = "" }) => {
+const ChallengeMode = ({ onBack, initialCode = "", friend = null }) => {
   const [phase, setPhase] = useState("menu"); // menu | playing | done
   const [code, setCode] = useState("");
   const [inputCode, setInputCode] = useState(initialCode);
@@ -2717,6 +2753,9 @@ const ChallengeMode = ({ onBack, initialCode = "" }) => {
   const [error, setError] = useState("");
   const [selectedTheme, setSelectedTheme] = useState(THEMES[0]);
   const [currentTheme, setCurrentTheme] = useState(THEMES[0]); // thème en cours de défi
+  const [gaz, setGaz] = useState(null); // « +N Gaz » de la dernière partie
+  const startedAt = useRef(0); // durée réelle de la partie (Le Gaz)
+  const friendRef = useRef(friend); // défi d'un pote : compte pour la première partie lancée
   const inputRef = useRef(null);
   useFeedbackHaptics(feedback);
 
@@ -2746,6 +2785,8 @@ const ChallengeMode = ({ onBack, initialCode = "" }) => {
     setAnswer("");
     setFeedback(null);
     setError("");
+    setGaz(null);
+    startedAt.current = Date.now();
     setPhase("playing");
     setTimeout(() => inputRef.current?.focus(), 100);
   };
@@ -2822,6 +2863,11 @@ const ChallengeMode = ({ onBack, initialCode = "" }) => {
   const finishChallenge = async (finalScore, finalResults) => {
     setPhase("done");
     playSound("time_up");
+    // Le Gaz : partie finie (durée réelle) et, si elle a été lancée par « Relever le défi », défi d'un pote
+    const facts = [["game_completed", { duration: Math.round((Date.now() - startedAt.current) / 1000), mode: "defi", result: finalScore }]];
+    const fr = friendRef.current && parseChallengeCode(initialCode)?.full === code ? friendRef.current : null; // même épreuve que le lien
+    if (fr) { friendRef.current = null; const target = parseInt(fr.score, 10); facts.push(["friend_challenge_completed", { from: fr.from, won: Number.isFinite(target) && finalScore > target }]); }
+    reportGaz(facts).then(setGaz);
     try {
       await challengesAPI.submitScore(code, pseudo, finalScore, finalResults.filter(r => r.accepted).length);
       const board = await challengesAPI.getLeaderboard(code);
@@ -2933,6 +2979,8 @@ const ChallengeMode = ({ onBack, initialCode = "" }) => {
             <div className="my-2"><Odometer value={score} className="text-5xl" /></div>
             <div className="text-sm text-stone-700 mt-2">{acceptedCount}/{plates.length} plaques terrassées</div>
           </div>
+
+          <GazLine gaz={gaz} />
 
           {leaderboard.length > 1 && (
             <div className="bg-white/60 rounded-2xl p-4 space-y-2">
@@ -3354,6 +3402,14 @@ export default function App() {
   const [challenge, setChallenge] = useState(params.challenge);
   const [salon, setSalon] = useState(params.salon);
   const [challengeCode, setChallengeCode] = useState("");
+  const [friendCh, setFriendCh] = useState(null); // { from, score } : partie lancée par « Relever le défi » (Le Gaz)
+  // « Relever le défi » du bandeau potes : même épreuve (défi partagé s'il a un code, sinon le chrono)
+  const onPotesChallenge = useCallback((ch) => {
+    const code = parseChallengeCode(ch?.params?.code || "") ? ch.params.code.toUpperCase() : "";
+    setFriendCh(ch?.from ? { from: ch.from, score: ch.score } : null);
+    if (code) { setChallengeCode(code); setMode("defi"); } else setMode("chrono");
+  }, []);
+  const selectMode = useCallback((m) => { setFriendCh(null); setMode(m); }, []);
   // Compte Full Gaz : identité puis synchro du record au démarrage
   useEffect(() => {
     if (!ACCOUNT_ON) return;
@@ -3366,10 +3422,12 @@ export default function App() {
     <>
       {mode === null && (
         <Home
-          onSelectMode={setMode}
+          onSelectMode={selectMode}
           challenge={challenge}
+          onPotesChallenge={onPotesChallenge}
           onAcceptChallenge={() => {
             // Même épreuve que celle du lien : le défi partagé s'il a un code, sinon le chrono
+            setFriendCh({ from: challenge.from, score: challenge.score });
             if (challenge.code) { setChallengeCode(challenge.code); setMode("defi"); }
             else setMode("chrono");
             setChallenge(null);
@@ -3377,9 +3435,9 @@ export default function App() {
         />
       )}
       {mode === "zen" && <SoloZen onBack={() => setMode(null)} />}
-      {mode === "chrono" && <SoloChrono onBack={() => setMode(null)} />}
+      {mode === "chrono" && <SoloChrono friend={friendCh} onBack={() => setMode(null)} />}
       {mode === "multi" && <MultiRoom initialCode={salon} onBack={() => { setSalon(""); setMode(null); }} />}
-      {mode === "defi" && <ChallengeMode initialCode={challengeCode} onBack={() => { setChallengeCode(""); setMode(null); }} />}
+      {mode === "defi" && <ChallengeMode initialCode={challengeCode} friend={friendCh} onBack={() => { setChallengeCode(""); setMode(null); }} />}
       {mode === "vif" && <SurLeVif onBack={() => setMode(null)} />}
     </>
   );
