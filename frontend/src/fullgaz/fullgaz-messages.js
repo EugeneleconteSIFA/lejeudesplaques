@@ -51,7 +51,8 @@ button.row:hover, a.row:hover { border-color: var(--m-accent); }
 .small { min-height: 40px; padding: 0 12px; font-size: 14px; }
 form { display: flex; flex-direction: column; gap: 10px; }
 label { display: flex; flex-direction: column; gap: 4px; font-weight: 700; font-size: 14px; }
-input, textarea { min-height: 46px; padding: 10px 12px; border-radius: 12px; border: 2px solid var(--m-line); background: var(--m-surface); }
+/* 16 px minimum : en dessous, l'iPhone zoome la page quand on touche le champ et ne dézoome plus. */
+input, textarea { font-size: 16px; min-height: 46px; padding: 10px 12px; border-radius: 12px; border: 2px solid var(--m-line); background: var(--m-surface); }
 input:focus, textarea:focus, button:focus-visible, a:focus-visible { outline: 3px solid var(--m-accent); outline-offset: 2px; }
 .err { color: #ff8a8a; font-weight: 700; font-size: 14px; }
 .ok { color: #2fe08a; font-weight: 700; font-size: 14px; }
