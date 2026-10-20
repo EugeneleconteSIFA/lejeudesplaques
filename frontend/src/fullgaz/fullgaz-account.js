@@ -24,7 +24,11 @@ const MESSAGES = {
   'empty-message': 'Message vide.',
   'too-many-messages': 'Tu écris trop vite, souffle un peu.',
   'bad-subscription': 'Notifications impossibles sur ce navigateur.',
-  'not-unlocked': 'Pas encore débloqué : monte de niveau pour l\'avoir.',
+  'not-owned': 'Achète-le d\'abord dans la boutique.',
+  'not-enough-gaz': 'Pas assez de Gaz : joue encore un peu !',
+  locked: 'À débloquer d\'abord dans le jeu.',
+  'already-owned': 'Tu l\'as déjà.',
+  'unknown-item': 'Cet article n\'existe plus.',
 };
 
 export class FullGazError extends Error {
@@ -267,12 +271,17 @@ export function flushEvents() {
   return flushing;
 }
 
-// Profil Gaz : { total, level, name, rank, next, floor, streak, today, quests, unlocked, equip, log }.
+// Profil Gaz : { balance, earned, spent, streak, today, quests, shop, feats, owned, equip, invites, log }.
 export async function gazProfile() {
   return (await call('GET', 'fullgaz/gaz')).gaz;
 }
 
-// Équipe un titre, un badge, un cadre ou un thème débloqué : { title?, badge?, frame?, theme? } (null pour retirer).
+// Équipe un article possédé : { title?, avatar?, badge?, frame?, theme? } (id de l'article, ou null pour retirer).
 export async function equipGaz(choice) {
   return (await call('POST', 'fullgaz/gaz/equip', choice)).gaz;
+}
+
+// Boutique : achète un article (id) avec le solde de Gaz. Renvoie le profil à jour.
+export async function buyGaz(id) {
+  return (await call('POST', 'fullgaz/gaz/buy', { id })).gaz;
 }
