@@ -67,6 +67,7 @@ const REFERRER = 'fullgaz.parrain';
 
 export async function signIn(name, password) {
   await call('POST', 'login', { name, password });
+  try { window.kernse?.track('connexion'); } catch (e) { /* studio Kernse : compte les connexions, sans donnée personnelle */ }
   try { localStorage.removeItem(REFERRER); } catch (e) { /* rien */ } // le parrainage ne vaut que pour un nouveau compte
   flushEvents();
   return whoAmI();
@@ -87,6 +88,7 @@ export function inviteLink(name, url = 'https://fullgaz.kernse.fr') {
 export async function signUp(name, password, consent) {
   const referrer = pendingReferrer();
   await call('POST', 'signup', { name, password, ...(consent ? { consent } : {}), ...(referrer ? { referrer } : {}) });
+  try { window.kernse?.track('inscription'); } catch (e) { /* studio Kernse : compte les inscriptions, sans donnée personnelle */ }
   try { localStorage.removeItem(REFERRER); } catch (e) { /* rien */ }
   flushEvents();
   return whoAmI();
